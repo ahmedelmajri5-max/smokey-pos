@@ -1,0 +1,19 @@
+{
+  "name": "Smokey POS",
+  "short_name": "Smokey POS",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#070809",
+  "theme_color": "#070809",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "assets/smokey-logo.jpeg",
+      "sizes": "1080x985",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}

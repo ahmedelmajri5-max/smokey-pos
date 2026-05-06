@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smokey POS</title>
+  <meta name="theme-color" content="#070809">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="styles.css?v=10">
+</head>
+<body>
+  <section class="login-view" id="loginView">
+    <form class="login-card" id="loginForm">
+      <img src="assets/smokey-logo.jpeg" alt="Smokey BBQ & Grill">
+      <h1>تسجيل الدخول</h1>
+      <label>
+        <span>اسم المستخدم</span>
+        <input type="text" value="admin" autocomplete="username">
+      </label>
+      <label>
+        <span>كلمة المرور</span>
+        <input type="password" value="123456" autocomplete="current-password">
+      </label>
+      <label class="remember-row">
+        <input type="checkbox">
+        <span>تذكرني</span>
+      </label>
+      <button class="primary-btn" type="submit">تسجيل الدخول</button>
+      <p>Smokey POS System</p>
+    </form>
+  </section>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="التنقل الرئيسي">
+      <div class="brand">
+        <img src="assets/smokey-logo.jpeg" alt="Smokey BBQ & Grill">
+        <div>
+          <strong>Smokey</strong>
+          <span>BBQ & Grill</span>
+        </div>
+      </div>
+
+      <nav class="nav-list">
+        <button class="nav-item active" data-screen="dashboard">الرئيسية</button>
+        <button class="nav-item" data-screen="pos">المبيعات</button>
+        <button class="nav-item" data-screen="orders">الطلبات</button>
+        <button class="nav-item" data-screen="items">الأصناف</button>
+        <button class="nav-item" data-screen="kitchen">التجميع</button>
+        <button class="nav-item" data-screen="customer">عرض الزبائن</button>
+        <button class="nav-item" data-screen="printers">الطابعات</button>
+        <button class="nav-item" data-screen="reports">التقارير</button>
+        <button class="nav-item" data-screen="shifts">الورديات</button>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-toggle" type="button" aria-label="فتح القائمة">☰</button>
+        <div>
+          <p class="eyebrow">مطعم سموكي</p>
+          <h1 id="pageTitle">لوحة الإدارة</h1>
+        </div>
+        <div class="top-actions">
+          <span id="clock">--:--</span>
+          <button class="icon-btn" type="button" aria-label="التنبيهات">●</button>
+          <div class="user-chip">المدير</div>
+        </div>
+      </header>
+
+      <section class="mobile-tabs" aria-label="تنقل سريع">
+        <button class="nav-item active" data-screen="dashboard">الرئيسية</button>
+        <button class="nav-item" data-screen="pos">المبيعات</button>
+        <button class="nav-item" data-screen="kitchen">التجميع</button>
+        <button class="nav-item" data-screen="customer">الزبائن</button>
+      </section>
+
+      <section class="screen active" id="dashboard">
+        <div class="metrics-grid">
+          <article class="metric-card accent-red">
+            <span>مبيعات اليوم</span>
+            <strong>3,250 د.ل</strong>
+          </article>
+          <article class="metric-card accent-blue">
+            <span>عدد الطلبات</span>
+            <strong id="ordersCount">148</strong>
+          </article>
+          <article class="metric-card accent-green">
+            <span>الطلبات الجاهزة</span>
+            <strong id="readyCount">12</strong>
+          </article>
+          <article class="metric-card accent-orange">
+            <span>قيد التجهيز</span>
+            <strong id="makingCount">9</strong>
+          </article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel chart-panel">
+            <div class="panel-head">
+              <h2>المبيعات آخر 7 أيام</h2>
+              <span>د.ل</span>
+            </div>
+            <div class="bar-chart" aria-label="رسم بياني للمبيعات">
+              <span style="--h:42%"></span>
+              <span style="--h:36%"></span>
+              <span style="--h:58%"></span>
+              <span style="--h:50%"></span>
+              <span style="--h:76%"></span>
+              <span style="--h:62%"></span>
+              <span style="--h:84%"></span>
+            </div>
+            <div class="chart-days">
+              <span>سبت</span><span>أحد</span><span>اثن</span><span>ثلث</span><span>أربع</span><span>خمس</span><span>جمع</span>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <h2>المبيعات حسب نوع الطلب</h2>
+            </div>
+            <div class="donut-row">
+              <div class="donut" aria-hidden="true"></div>
+              <ul class="legend">
+                <li><i class="red"></i> سفري خارجي <b>40%</b></li>
+                <li><i class="blue"></i> صالة <b>30%</b></li>
+                <li><i class="violet"></i> توصيل <b>20%</b></li>
+                <li><i class="orange"></i> بريستو <b>10%</b></li>
+              </ul>
+            </div>
+          </article>
+        </div>
+
+        <div class="mini-grid">
+          <article class="mini-card"><span>أكثر صنف مبيعًا</span><strong>Smokey Burger</strong><small>120 طلب</small></article>
+          <article class="mini-card"><span>الكاشير النشط</span><strong>أحمد محمد</strong><small>43 فاتورة</small></article>
+          <article class="mini-card"><span>متوسط قيمة الطلب</span><strong>22 د.ل</strong><small>اليوم</small></article>
+          <article class="mini-card"><span>إجمالي الخصومات</span><strong>120 د.ل</strong><small>هذا الأسبوع</small></article>
+        </div>
+      </section>
+
+      <section class="screen" id="pos">
+        <div class="pos-layout">
+          <div class="pos-products">
+            <div class="order-strip">
+              <strong>رقم الطلب <span id="currentOrder">#1058</span></strong>
+              <div class="segmented" id="orderTypes"></div>
+            </div>
+            <div class="category-row" id="categories"></div>
+            <div class="product-grid" id="products"></div>
+          </div>
+          <aside class="cart-panel">
+            <div class="panel-head">
+              <h2>سلة الطلب</h2>
+              <button class="text-btn danger" type="button" id="clearCart">تفريغ</button>
+            </div>
+            <div class="cart-items" id="cartItems"></div>
+            <label class="field-label" for="orderNote">ملاحظة الطلب</label>
+            <textarea id="orderNote" rows="2" placeholder="مثال: بدون بصل"></textarea>
+            <div class="totals">
+              <span>الإجمالي</span><strong id="subtotal">0 د.ل</strong>
+              <span>الخصم</span><strong>0</strong>
+              <span>الإجمالي النهائي</span><strong id="total">0 د.ل</strong>
+            </div>
+            <div class="pay-row" id="paymentMethods"></div>
+            <button class="primary-btn" type="button" id="confirmOrder">تأكيد الطلب وطباعة</button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="screen" id="orders">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>آخر الطلبات</h2>
+            <span>متابعة حالة الطلبات</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>الطلب</th><th>النوع</th><th>الإجمالي</th><th>الحالة</th><th>الكاشير</th></tr></thead>
+              <tbody id="ordersTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="items">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>إدارة الأصناف</h2>
+            <button class="primary-small" type="button">إضافة صنف</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>الصنف</th><th>التصنيف</th><th>القسم</th><th>السعر</th><th>الحالة</th></tr></thead>
+              <tbody id="itemsTable"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="kitchen">
+        <div class="kitchen-layout">
+          <div>
+            <div class="section-title">
+              <h2>شاشة التجميع</h2>
+              <span>مرتبة من الأقدم إلى الأحدث</span>
+            </div>
+            <div class="kitchen-orders" id="kitchenOrders"></div>
+          </div>
+          <aside class="panel sticky-summary">
+            <div class="panel-head"><h2>إجمالي الأصناف قيد التجهيز</h2></div>
+            <div class="prep-list" id="prepTotals"></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="screen customer-screen" id="customer">
+        <button class="customer-exit" type="button" id="customerExit">خروج</button>
+        <div class="customer-logo">
+          <img src="assets/smokey-logo.jpeg" alt="Smokey">
+          <h2>طلب جاهز</h2>
+        </div>
+        <div class="customer-display">
+          <div>
+            <h3>طلب جاهز</h3>
+            <div class="number-grid ready" id="readyOrders"></div>
+          </div>
+          <div>
+            <h3>طلب تحت التجهيز</h3>
+            <div class="number-grid making" id="makingOrders"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screen" id="printers">
+        <div class="printer-grid" id="printersGrid"></div>
+      </section>
+
+      <section class="screen" id="reports">
+        <div class="reports-grid">
+          <article class="panel"><h2>تقرير المبيعات</h2><p>اليوم، فترة محددة، حسب الكاشير، نوع الطلب، والصنف.</p><button class="primary-small">تصدير Excel</button></article>
+          <article class="panel"><h2>تقرير التشغيل</h2><p>عدد الطلبات، متوسط وقت التجهيز، الطلبات المتأخرة، وأداء الأقسام.</p><button class="primary-small">عرض التقرير</button></article>
+          <article class="panel"><h2>تقرير المستخدمين</h2><p>نشاط المستخدمين، المبيعات، أوقات الدخول والخروج، والتعديلات.</p><button class="primary-small">تصدير PDF</button></article>
+        </div>
+      </section>
+
+      <section class="screen" id="shifts">
+        <div class="panel shift-card">
+          <div>
+            <span class="status-pill on">وردية مفتوحة</span>
+            <h2>وردية المساء</h2>
+            <p>الكاشير: أحمد محمد</p>
+          </div>
+          <div class="shift-money">
+            <span>رصيد البداية</span><strong>500 د.ل</strong>
+            <span>النقدية المتوقعة</span><strong>2,840 د.ل</strong>
+            <span>الفرق</span><strong>0 د.ل</strong>
+          </div>
+          <button class="primary-btn">إغلاق الوردية</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js?v=10"></script>
+  <script>
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      navigator.serviceWorker.register("sw.js");
+    }
+  </script>
+</body>
+</html>
