@@ -6,7 +6,7 @@
   <title>Smokey POS</title>
   <meta name="theme-color" content="#070809">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css?v=10">
+  <link rel="stylesheet" href="styles.css?v=45">
 </head>
 <body>
   <section class="login-view" id="loginView">
@@ -14,15 +14,16 @@
       <img src="assets/smokey-logo.jpeg" alt="Smokey BBQ & Grill">
       <h1>تسجيل الدخول</h1>
       <label>
-        <span>اسم المستخدم</span>
-        <input type="text" value="admin" autocomplete="username">
+        <span>الإيميل</span>
+        <input id="loginEmail" type="email" autocomplete="username">
       </label>
       <label>
         <span>كلمة المرور</span>
-        <input type="password" value="123456" autocomplete="current-password">
+        <input id="loginPassword" type="password" autocomplete="current-password">
       </label>
+      <p class="login-error" id="loginError"></p>
       <label class="remember-row">
-        <input type="checkbox">
+        <input id="rememberLogin" type="checkbox">
         <span>تذكرني</span>
       </label>
       <button class="primary-btn" type="submit">تسجيل الدخول</button>
@@ -48,6 +49,7 @@
         <button class="nav-item" data-screen="kitchen">التجميع</button>
         <button class="nav-item" data-screen="customer">عرض الزبائن</button>
         <button class="nav-item" data-screen="printers">الطابعات</button>
+        <button class="nav-item" data-screen="users">المستخدمين</button>
         <button class="nav-item" data-screen="reports">التقارير</button>
         <button class="nav-item" data-screen="shifts">الورديات</button>
       </nav>
@@ -64,77 +66,132 @@
           <span id="clock">--:--</span>
           <button class="icon-btn" type="button" aria-label="التنبيهات">●</button>
           <div class="user-chip">المدير</div>
+          <button class="logout-btn" id="logoutButton" type="button">تسجيل الخروج</button>
         </div>
       </header>
 
-      <section class="mobile-tabs" aria-label="تنقل سريع">
-        <button class="nav-item active" data-screen="dashboard">الرئيسية</button>
-        <button class="nav-item" data-screen="pos">المبيعات</button>
-        <button class="nav-item" data-screen="kitchen">التجميع</button>
-        <button class="nav-item" data-screen="customer">الزبائن</button>
+      <section class="mobile-tabs" aria-label="تنقل الهاتف">
+        <button class="nav-item mobile-nav-button active" data-screen="dashboard" type="button"><span>⌂</span><b>رئيسية</b></button>
+        <button class="nav-item mobile-nav-button" data-screen="pos" type="button"><span>▦</span><b>مبيعات</b></button>
+        <button class="nav-item mobile-nav-button" data-screen="orders" type="button"><span>#</span><b>طلبات</b></button>
+        <button class="nav-item mobile-nav-button" data-screen="items" type="button"><span>◈</span><b>أصناف</b></button>
+        <button class="nav-item mobile-nav-button" data-screen="kitchen" type="button"><span>✓</span><b>تجميع</b></button>
+        <button class="nav-item mobile-nav-button" data-screen="customer" type="button"><span>▣</span><b>زبائن</b></button>
+        <div class="mobile-settings-nav">
+          <button class="mobile-nav-button mobile-settings-toggle" id="mobileSettingsToggle" type="button" aria-expanded="false"><span>⚙</span><b>سيتنق</b></button>
+          <div class="mobile-settings-popover" id="mobileSettingsMenu">
+            <button class="nav-item" data-screen="printers" type="button">الطابعات</button>
+            <button class="nav-item" data-screen="users" type="button">المستخدمين</button>
+            <button class="nav-item" data-screen="reports" type="button">التقارير</button>
+            <button class="nav-item" data-screen="shifts" type="button">الورديات</button>
+          </div>
+        </div>
       </section>
 
       <section class="screen active" id="dashboard">
+        <div class="section-title dashboard-section-title">
+          <h2>معلومات اليوم</h2>
+          <span>اليوم التشغيلي من 1:00 صباحاً إلى 1:00 صباحاً</span>
+        </div>
         <div class="metrics-grid">
           <article class="metric-card accent-red">
             <span>مبيعات اليوم</span>
-            <strong>3,250 د.ل</strong>
+            <strong id="todaySales">0 د.ل</strong>
           </article>
           <article class="metric-card accent-blue">
             <span>عدد الطلبات</span>
-            <strong id="ordersCount">148</strong>
+            <strong id="ordersCount">0</strong>
           </article>
           <article class="metric-card accent-green">
             <span>الطلبات الجاهزة</span>
-            <strong id="readyCount">12</strong>
+            <strong id="readyCount">0</strong>
           </article>
           <article class="metric-card accent-orange">
             <span>قيد التجهيز</span>
-            <strong id="makingCount">9</strong>
+            <strong id="makingCount">0</strong>
+          </article>
+          <article class="metric-card accent-red">
+            <span>الطلبات الملغية</span>
+            <strong id="canceledCount">0</strong>
           </article>
         </div>
 
         <div class="dashboard-grid">
-          <article class="panel chart-panel">
+          <article class="panel">
             <div class="panel-head">
-              <h2>المبيعات آخر 7 أيام</h2>
-              <span>د.ل</span>
+              <h2>بيع اليوم حسب طريقة الدفع</h2>
             </div>
-            <div class="bar-chart" aria-label="رسم بياني للمبيعات">
-              <span style="--h:42%"></span>
-              <span style="--h:36%"></span>
-              <span style="--h:58%"></span>
-              <span style="--h:50%"></span>
-              <span style="--h:76%"></span>
-              <span style="--h:62%"></span>
-              <span style="--h:84%"></span>
-            </div>
-            <div class="chart-days">
-              <span>سبت</span><span>أحد</span><span>اثن</span><span>ثلث</span><span>أربع</span><span>خمس</span><span>جمع</span>
+            <div class="donut-row">
+              <div class="donut payment-donut" id="paymentDonut" aria-hidden="true"></div>
+              <ul class="legend payment-legend">
+                <li><i class="green"></i> نقدي <b id="cashPaymentShare">0%</b><span id="cashPaymentTotal">0 د.ل</span></li>
+                <li><i class="blue"></i> صك <b id="checkPaymentShare">0%</b><span id="checkPaymentTotal">0 د.ل</span></li>
+              </ul>
             </div>
           </article>
 
           <article class="panel">
             <div class="panel-head">
-              <h2>المبيعات حسب نوع الطلب</h2>
+              <h2>إجمالي مالي لكل كاشير</h2>
+              <span>يتحدث تلقائياً عند إضافة كاشير</span>
             </div>
-            <div class="donut-row">
-              <div class="donut" aria-hidden="true"></div>
-              <ul class="legend">
-                <li><i class="red"></i> سفري خارجي <b>40%</b></li>
-                <li><i class="blue"></i> صالة <b>30%</b></li>
-                <li><i class="violet"></i> توصيل <b>20%</b></li>
-                <li><i class="orange"></i> بريستو <b>10%</b></li>
-              </ul>
-            </div>
+            <div class="prep-list" id="cashierTotals"></div>
           </article>
         </div>
 
         <div class="mini-grid">
-          <article class="mini-card"><span>أكثر صنف مبيعًا</span><strong>Smokey Burger</strong><small>120 طلب</small></article>
-          <article class="mini-card"><span>الكاشير النشط</span><strong>أحمد محمد</strong><small>43 فاتورة</small></article>
-          <article class="mini-card"><span>متوسط قيمة الطلب</span><strong>22 د.ل</strong><small>اليوم</small></article>
-          <article class="mini-card"><span>إجمالي الخصومات</span><strong>120 د.ل</strong><small>هذا الأسبوع</small></article>
+          <article class="mini-card"><span>متوسط مدة تجهيز الطلب</span><strong id="avgPrepTime">0 دقيقة</strong><small>من إنشاء الطلب إلى جاهز</small></article>
+          <article class="mini-card"><span>أكثر صنف مبيعاً اليوم</span><strong id="topItemName">-</strong><small id="topItemCount">0 طلب</small></article>
+          <article class="mini-card"><span>الكاشير النشط</span><strong id="topCashierName">-</strong><small id="topCashierCount">0 فاتورة</small></article>
+          <article class="mini-card"><span>متوسط قيمة الطلب</span><strong id="avgOrderValue">0 د.ل</strong><small>اليوم</small></article>
+        </div>
+
+        <div class="section-title dashboard-section-title weekly-title">
+          <h2>معلومات الأسبوع</h2>
+          <span>الأسبوع من الجمعة إلى الخميس</span>
+        </div>
+
+        <div class="metrics-grid">
+          <article class="metric-card accent-red">
+            <span>إجمالي مبيعات الأسبوع</span>
+            <strong id="weekSales">0 د.ل</strong>
+          </article>
+          <article class="metric-card accent-blue">
+            <span>طلبات الأسبوع</span>
+            <strong id="weekOrdersCount">0</strong>
+          </article>
+          <article class="metric-card accent-green">
+            <span>أكثر صنف مبيعاً</span>
+            <strong id="weekTopItemName">-</strong>
+          </article>
+          <article class="metric-card accent-orange">
+            <span>كمية الصنف</span>
+            <strong id="weekTopItemCount">0</strong>
+          </article>
+        </div>
+
+        <div class="dashboard-grid">
+          <article class="panel">
+            <div class="panel-head">
+              <h2>إجمالي النقدي والصك</h2>
+            </div>
+            <div class="donut-row">
+              <div class="donut payment-donut" id="weekPaymentDonut" aria-hidden="true"></div>
+              <ul class="legend payment-legend">
+                <li><i class="green"></i> نقدي <b id="weekCashPaymentShare">0%</b><span id="weekCashPaymentTotal">0 د.ل</span></li>
+                <li><i class="blue"></i> صك <b id="weekCheckPaymentShare">0%</b><span id="weekCheckPaymentTotal">0 د.ل</span></li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="panel chart-panel">
+            <div class="panel-head">
+              <h2>قيم المبيعات خلال الأسبوع</h2>
+              <span>د.ل</span>
+            </div>
+            <div class="bar-chart" id="weeklySalesChart" aria-label="رسم بياني للمبيعات الأسبوعية"></div>
+            <div class="chart-days" id="weeklySalesDays"></div>
+          </article>
         </div>
       </section>
 
@@ -142,7 +199,7 @@
         <div class="pos-layout">
           <div class="pos-products">
             <div class="order-strip">
-              <strong>رقم الطلب <span id="currentOrder">#1058</span></strong>
+              <strong>رقم الطلب <span id="currentOrder">#1</span></strong>
               <div class="segmented" id="orderTypes"></div>
             </div>
             <div class="category-row" id="categories"></div>
@@ -151,8 +208,15 @@
           <aside class="cart-panel">
             <div class="panel-head">
               <h2>سلة الطلب</h2>
-              <button class="text-btn danger" type="button" id="clearCart">تفريغ</button>
+              <div class="cart-head-actions">
+                <button class="cart-collapse-btn" type="button" id="cartCollapseToggle" aria-label="تصغير السلة" aria-expanded="true">−</button>
+                <button class="text-btn danger" type="button" id="clearCart">تفريغ</button>
+              </div>
             </div>
+            <button class="cart-mini-toggle" type="button" id="cartMiniToggle" aria-label="فتح السلة">
+              <span>سلة</span>
+              <strong id="cartMiniTotal">0 د.ل</strong>
+            </button>
             <div class="cart-items" id="cartItems"></div>
             <label class="field-label" for="orderNote">ملاحظة الطلب</label>
             <textarea id="orderNote" rows="2" placeholder="مثال: بدون بصل"></textarea>
@@ -173,9 +237,28 @@
             <h2>آخر الطلبات</h2>
             <span>متابعة حالة الطلبات</span>
           </div>
+          <div class="orders-toolbar">
+            <label class="search-field">
+              <span>بحث عن طلب</span>
+              <input id="orderSearch" type="search" inputmode="numeric" placeholder="اكتب رقم الطلب أو الكاشير">
+            </label>
+            <label class="search-field order-date-filter">
+              <span>تاريخ الطلبات</span>
+              <input id="orderDateFilter" type="date">
+            </label>
+            <label class="search-field order-status-filter">
+              <span>فلتر الحالة</span>
+              <select id="orderStatusFilter">
+                <option>الكل</option>
+                <option>قيد التجهيز</option>
+                <option>جاهز</option>
+                <option>ملغي</option>
+              </select>
+            </label>
+          </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>الطلب</th><th>النوع</th><th>الإجمالي</th><th>الحالة</th><th>الكاشير</th></tr></thead>
+              <thead><tr><th>الطلب</th><th>النوع</th><th>الإجمالي</th><th>الحالة</th><th>الكاشير</th><th>إجراء</th></tr></thead>
               <tbody id="ordersTable"></tbody>
             </table>
           </div>
@@ -183,16 +266,32 @@
       </section>
 
       <section class="screen" id="items">
-        <div class="panel">
-          <div class="panel-head">
-            <h2>إدارة الأصناف</h2>
-            <button class="primary-small" type="button">إضافة صنف</button>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead><tr><th>الصنف</th><th>التصنيف</th><th>القسم</th><th>السعر</th><th>الحالة</th></tr></thead>
-              <tbody id="itemsTable"></tbody>
-            </table>
+        <div class="items-layout">
+          <form class="panel item-form" id="itemForm">
+            <div class="panel-head">
+              <h2 id="itemFormTitle">إضافة صنف</h2>
+              <button class="text-btn danger" type="button" id="cancelItemEdit">إلغاء</button>
+            </div>
+            <label><span>اسم الصنف</span><input id="itemName" type="text" required></label>
+            <label><span>السعر</span><input id="itemPrice" type="number" min="0" step="0.5" required></label>
+            <label><span>التصنيف</span><select id="itemCategory"><option>برجر</option><option>مشويات</option><option>مقليات</option><option>مشروبات</option></select></label>
+            <label><span>القسم المسؤول</span><select id="itemStation"><option>الگرل</option><option>القلاية</option><option>التجميع</option></select></label>
+            <label><span>رمز الصنف</span><select id="itemIcon"></select></label>
+            <label class="check-row"><input id="itemAvailable" type="checkbox" checked><span>متوفر في شاشة الكاشير</span></label>
+            <button class="primary-btn" type="submit">حفظ الصنف</button>
+          </form>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>إدارة الأصناف</h2>
+              <span>إضافة وتعديل وإيقاف الأصناف</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>الصنف</th><th>التصنيف</th><th>القسم</th><th>السعر</th><th>الحالة</th><th>إجراء</th></tr></thead>
+                <tbody id="itemsTable"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
@@ -204,6 +303,7 @@
               <h2>شاشة التجميع</h2>
               <span>مرتبة من الأقدم إلى الأحدث</span>
             </div>
+            <div class="kitchen-alerts" id="kitchenAlerts"></div>
             <div class="kitchen-orders" id="kitchenOrders"></div>
           </div>
           <aside class="panel sticky-summary">
@@ -235,7 +335,89 @@
         <div class="printer-grid" id="printersGrid"></div>
       </section>
 
+      <section class="screen" id="users">
+        <div class="users-layout">
+          <form class="panel user-form" id="userForm">
+            <div class="panel-head">
+              <h2 id="userFormTitle">إضافة مستخدم</h2>
+              <span>صلاحيات حسب الدور</span>
+            </div>
+            <label>
+              <span>اسم المستخدم</span>
+              <input id="newUserName" type="text" placeholder="مثال: سالم علي" required>
+            </label>
+            <label>
+              <span>الإيميل</span>
+              <input id="newUserEmail" type="email" placeholder="cashier@smokey.local" required>
+            </label>
+            <label>
+              <span>كلمة المرور</span>
+              <input id="newUserPassword" type="password" placeholder="كلمة مرور مؤقتة" required>
+            </label>
+            <label>
+              <span>الدور</span>
+              <select id="newUserRole"></select>
+            </label>
+            <div class="permission-box" id="rolePermissions"></div>
+            <button class="primary-btn" type="submit" id="saveUserButton">إضافة المستخدم</button>
+            <button class="text-btn danger" type="button" id="cancelUserEdit">إلغاء التعديل</button>
+          </form>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>المستخدمين والصلاحيات</h2>
+              <span>إدارة حسابات النظام</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>المستخدم</th><th>الإيميل</th><th>كلمة المرور</th><th>الدور</th><th>الصلاحيات</th><th>الحالة</th><th>إجراء</th></tr></thead>
+                <tbody id="usersTable"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="screen" id="reports">
+        <div class="panel report-controls">
+          <div class="panel-head">
+            <h2>فلتر التقارير</h2>
+            <span>الفترة تبدأ افتراضياً على اليوم التشغيلي</span>
+          </div>
+          <div class="report-filter-row">
+            <label><span>من تاريخ</span><input id="reportFrom" type="date"></label>
+            <label><span>إلى تاريخ</span><input id="reportTo" type="date"></label>
+            <button class="primary-small" type="button" id="showItemsReport">تقرير الأصناف</button>
+            <button class="primary-small" type="button" id="showSalesReport">تقرير المبيعات</button>
+            <button class="primary-small" type="button" id="showOpsReport">تقرير التشغيل</button>
+          </div>
+        </div>
+
+        <div class="reports-grid reports-actions">
+          <article class="panel">
+            <h2>تقرير الأصناف</h2>
+            <p>يعرض كل صنف وكمية البيع خلال الفترة المحددة.</p>
+            <button class="primary-small" type="button" data-print-report="items">طباعة PDF</button>
+          </article>
+          <article class="panel">
+            <h2>تقرير المبيعات</h2>
+            <p>إجمالي المبيعات، النقدي والصك، الطلبات حسب الكاشير ونوع الطلب.</p>
+            <button class="primary-small" type="button" data-print-report="sales">طباعة PDF</button>
+          </article>
+          <article class="panel">
+            <h2>تقرير التشغيل</h2>
+            <p>عدد الطلبات، متوسط وقت التجهيز، الجاهزة، قيد التجهيز، وإجمالي الملغية.</p>
+            <button class="primary-small" type="button" data-print-report="operations">طباعة PDF</button>
+          </article>
+        </div>
+
+        <div class="panel report-output" id="reportOutput">
+          <div class="panel-head">
+            <h2 id="reportTitle">تقرير الأصناف</h2>
+            <span id="reportRangeLabel">اليوم</span>
+          </div>
+          <div id="reportBody"></div>
+        </div>
         <div class="reports-grid">
           <article class="panel"><h2>تقرير المبيعات</h2><p>اليوم، فترة محددة، حسب الكاشير، نوع الطلب، والصنف.</p><button class="primary-small">تصدير Excel</button></article>
           <article class="panel"><h2>تقرير التشغيل</h2><p>عدد الطلبات، متوسط وقت التجهيز، الطلبات المتأخرة، وأداء الأقسام.</p><button class="primary-small">عرض التقرير</button></article>
@@ -261,7 +443,7 @@
     </main>
   </div>
 
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=45"></script>
   <script>
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
       navigator.serviceWorker.register("sw.js");
