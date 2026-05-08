@@ -2,6 +2,7 @@ const state = {
   screen: "dashboard",
   category: "الكل",
   orderType: "سفري خارجي",
+  customerInfo: { name: "", phone: "" },
   payment: "نقدي",
   currentUser: null,
   nextOrder: 1,
@@ -12,37 +13,55 @@ const state = {
   editingOrderId: null,
   editingUserEmail: null,
   currentReport: "items",
+  editingInventoryId: null,
   users: [
     { name: "المدير", email: "admin@smokey.local", password: "123456", role: "Admin", status: "نشط" },
     { name: "أحمد محمد", email: "cashier@smokey.local", password: "123456", role: "Cashier", status: "نشط" },
     { name: "قسم التجميع", email: "assembly@smokey.local", password: "123456", role: "Order Assembly User", status: "نشط" }
   ],
   products: [
-    { id: 1, name: "Smokey Burger", price: 25, category: "برجر", station: "الگرل", icon: "🥪", available: true },
-    { id: 2, name: "BBQ Burger", price: 24, category: "برجر", station: "الگرل", icon: "🥪", available: true },
-    { id: 3, name: "Chicken Burger", price: 22, category: "برجر", station: "الگرل", icon: "🥪", available: true },
-    { id: 4, name: "Beef Steak", price: 45, category: "مشويات", station: "الگرل", icon: "🥩", available: true },
-    { id: 5, name: "Chicken Grill", price: 35, category: "مشويات", station: "الگرل", icon: "🍖", available: true },
-    { id: 6, name: "Ribs", price: 50, category: "مشويات", station: "الگرل", icon: "🍖", available: true },
-    { id: 7, name: "Fries", price: 8, category: "مقليات", station: "القلاية", icon: "🍟", available: true },
-    { id: 8, name: "Onion Rings", price: 10, category: "مقليات", station: "القلاية", icon: "🧅", available: true },
-    { id: 9, name: "Pepsi", price: 5, category: "مشروبات", station: "التجميع", icon: "🥤", available: true },
-    { id: 10, name: "7up", price: 5, category: "مشروبات", station: "التجميع", icon: "🥤", available: true },
-    { id: 11, name: "Mirinda", price: 5, category: "مشروبات", station: "التجميع", icon: "🥤", available: true },
-    { id: 12, name: "Water", price: 3, category: "مشروبات", station: "التجميع", icon: "💧", available: true }
+    { id: 1, name: "برغر كلاسيك", price: 0, category: "برغر", station: "الگرل", icon: "🥪", ingredients: ["شريحة برغر 120 غرام", "سلطة", "فلفل مشوي", "طماطم مشوي", "جبنة شرائح", "صوص", "خبزة برغر"], available: true },
+    { id: 2, name: "برغر دبل", price: 0, category: "برغر", station: "الگرل", icon: "🥪", ingredients: ["2 شريحة برغر 120 غرام", "سلطة", "فلفل مشوي", "طماطم مشوي", "جبنة شرائح", "صوص", "خبزة برغر"], available: true },
+    { id: 3, name: "برغر تربل", price: 0, category: "برغر", station: "الگرل", icon: "🥪", ingredients: ["3 شرائح برغر 120 غرام", "سلطة", "فلفل مشوي", "طماطم مشوي", "جبنة شرائح", "صوص", "خبزة برغر"], available: true },
+    { id: 4, name: "برغر ماك", price: 0, category: "برغر", station: "الگرل", icon: "🥪", ingredients: ["شريحة برغر 120 غرام", "فلفل هلابينو", "سلطة", "جبنة شرائح", "صوص ماك", "خبزة برغر"], available: true },
+    { id: 5, name: "برغر بيق ماك", price: 0, category: "برغر", station: "الگرل", icon: "🥪", ingredients: ["2 شريحة برغر 120 غرام", "فلفل هلابينو", "سلطة", "جبنة شرائح", "صوص ماك", "خبزة برغر"], available: true },
+    { id: 6, name: "برغر أجبان", price: 0, category: "برغر", station: "الگرل", icon: "🧀", ingredients: ["شريحة برغر 120 غرام", "سلطة", "3 أنواع جبنة", "صوص", "خبزة برغر"], available: true },
+    { id: 7, name: "برغر لوفي", price: 0, category: "برغر", station: "الگرل", icon: "🧀", ingredients: ["2 شريحة برغر 120 غرام", "سلطة", "3 أنواع جبنة دبل", "صوص", "هريسة", "خبزة برغر"], available: true },
+    { id: 8, name: "برغر سموكي", price: 0, category: "برغر", station: "الگرل", icon: "🥪", ingredients: ["2 شريحة برغر 100 غرام", "3 شرائح جبنة", "بصل مكرمل", "خبزة برغر"], available: true },
+    { id: 9, name: "ستيك دجاج", price: 0, category: "سندوتشات", station: "الگرل", icon: "🥙", ingredients: ["2 شريحة صدر دجاج", "سلطة", "طماطم", "صوص", "خبزة طويلة"], available: true },
+    { id: 10, name: "فاهيتا أجبان دجاج", price: 0, category: "سندوتشات", station: "الگرل", icon: "🥙", ingredients: ["دجاج متبل", "3 أنواع جبنة", "صوص", "فلفل ألوان", "خبزة طويلة"], available: true },
+    { id: 11, name: "فاهيتا لحم", price: 0, category: "سندوتشات", station: "الگرل", icon: "🥙", ingredients: ["لحم متبل", "3 أنواع جبنة", "هريسة", "جبنة", "خبزة طويلة"], available: true },
+    { id: 12, name: "أفخاذ دجاج", price: 0, category: "دجاج", station: "الگرل", icon: "🍗", ingredients: ["أفخاذ دجاج مشوية", "سلطة مشوية", "طماطم", "شريحة جبنة", "صوص", "سلطة", "خبزة بيضاوية"], available: true },
+    { id: 13, name: "تاكوس دجاج", price: 0, category: "تورتيلا", station: "التجميع", icon: "🌯", ingredients: ["دجاج متبل", "3 أنواع جبنة", "بطاطا مقلية", "صوص", "هريسة", "خبز تورتيلا"], available: true },
+    { id: 14, name: "دبل راب", price: 0, category: "تورتيلا", station: "القلاية", icon: "🌯", ingredients: ["شرائح دجاج مقلي", "كاتشب", "هريسة", "مايونيز", "سلطة", "لانشون", "خبزة تورتيلا"], available: true },
+    { id: 15, name: "توستر", price: 0, category: "تورتيلا", station: "القلاية", icon: "🌯", ingredients: ["شرائح دجاج مقلي", "سلطة", "جبنة شرائح", "فلفل هلابينو", "هريسة", "صوص", "خبز تورتيلا"], available: true },
+    { id: 16, name: "تشكن رول", price: 0, category: "تورتيلا", station: "القلاية", icon: "🌯", ingredients: ["شرائح دجاج مقلي", "3 أنواع جبنة", "بطاطا مقلية", "صوص", "خبز تورتيلا"], available: true },
+    { id: 17, name: "غراند تشكن", price: 0, category: "دجاج", station: "القلاية", icon: "🍗", ingredients: ["شرائح دجاج مقلي", "كولوسلو", "هريسة", "جبنة شرائح", "خيار مخلل", "صوص", "خبزة بيضاوية"], available: true },
+    { id: 18, name: "بطاطا مقلية", price: 0, category: "سناكس", station: "سناكس", icon: "🍟", ingredients: ["بطاطا مقلية"], available: true },
+    { id: 19, name: "حلقات بصل", price: 0, category: "سناكس", station: "سناكس", icon: "🧅", ingredients: ["حلقات بصل"], available: true },
+    { id: 20, name: "بطاطا بالجبنة", price: 0, category: "سناكس", station: "سناكس", icon: "🧀", ingredients: ["بطاطا مقلية", "جبنة"], available: true },
+    { id: 21, name: "أجنحة دجاج حارة", price: 0, category: "سناكس", station: "سناكس", icon: "🍗", ingredients: ["أجنحة دجاج مقلية", "صوص حار"], available: true }
   ],
   editingProductId: null,
-  orders: []
+  orders: [],
+  inventory: [],
+  inventoryTransactions: [],
+  inventorySettings: {
+    allowNegativeStock: false
+  }
 };
 
 const STORAGE_KEY = "smokey-pos-orders-v3";
 const USERS_STORAGE_KEY = "smokey-pos-users-v1";
-const PRODUCTS_STORAGE_KEY = "smokey-pos-products-v1";
+const PRODUCTS_STORAGE_KEY = "smokey-pos-products-v2";
+const INVENTORY_STORAGE_KEY = "smokey-pos-inventory-v1";
+const INVENTORY_TX_STORAGE_KEY = "smokey-pos-inventory-transactions-v1";
+const INVENTORY_SETTINGS_STORAGE_KEY = "smokey-pos-inventory-settings-v1";
 const AUTH_STORAGE_KEY = "smokey-pos-current-user-v1";
 const KITCHEN_BATCH_SIZE = 15;
 
-const categories = ["الكل", "برجر", "مشويات", "مقليات", "مشروبات"];
-const orderTypes = ["صالة", "توصيل", "سفري خارجي", "بريستو"];
+const categories = ["الكل", "برغر", "سندوتشات", "تورتيلا", "دجاج", "سناكس"];
+const orderTypes = ["صالة", "توصيل", "استلام", "سفري خارجي", "بريستو"];
 const paymentMethods = ["نقدي", "صك", "تحويل", "بطاقة"];
 const notePresets = [
   { code: "بدون صوص", label: "بدون صوص" },
@@ -52,11 +71,49 @@ const notePresets = [
   { code: "+صوص", label: "زيادة صوص" },
   { code: "حار", label: "حار" }
 ];
+const modifierActions = ["بدون", "زيادة", "إضافة"];
+const commonModifierIngredients = ["هريسة", "صوص", "جبنة", "سلطة", "فلفل", "طماطم", "بصل", "مايونيز", "كاتشب", "خيار مخلل", "بطاطا مقلية"];
+const defaultInventoryItems = [
+  { id: "inv-burger-bun", name: "خبزة برغر", type: "bread", unit: "piece", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-long-bun", name: "خبزة طويلة", type: "bread", unit: "piece", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-oval-bun", name: "خبزة بيضاوية", type: "bread", unit: "piece", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-tortilla-25", name: "تورتيلا 25 سم", type: "bread", unit: "piece", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-tortilla-30", name: "تورتيلا 30 سم", type: "bread", unit: "piece", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-beef-120", name: "شريحة برغر 120 غرام", type: "beef", unit: "slice", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-beef-100", name: "شريحة برغر 100 غرام", type: "beef", unit: "slice", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-fried-wrap-chicken", name: "دجاج مقلي للراب", type: "chicken", unit: "kg", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-fried-strips", name: "دجاج ستربس مقلي", type: "chicken", unit: "kg", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-chicken-steak", name: "دجاج ستيك", type: "chicken", unit: "kg", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-chicken-fajita", name: "فاهيتا دجاج", type: "chicken", unit: "kg", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-meat-fajita", name: "فاهيتا لحم", type: "meat", unit: "kg", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-chicken-thigh", name: "فخذ دجاج", type: "chicken", unit: "piece", current_quantity: 0, minimum_quantity: 0, is_active: true },
+  { id: "inv-grand-chicken", name: "شريحة غراند تشكن", type: "chicken", unit: "slice", current_quantity: 0, minimum_quantity: 0, is_active: true }
+];
+const defaultProductRecipes = {
+  "برغر كلاسيك": [["خبزة برغر", 1], ["شريحة برغر 120 غرام", 1]],
+  "برغر دبل": [["خبزة برغر", 1], ["شريحة برغر 120 غرام", 2]],
+  "برغر تربل": [["خبزة برغر", 1], ["شريحة برغر 120 غرام", 3]],
+  "برغر ماك": [["خبزة برغر", 1], ["شريحة برغر 120 غرام", 1]],
+  "برغر بيق ماك": [["خبزة برغر", 1], ["شريحة برغر 120 غرام", 2]],
+  "برغر أجبان": [["خبزة برغر", 1], ["شريحة برغر 120 غرام", 1]],
+  "برغر لوفي": [["خبزة برغر", 1], ["شريحة برغر 120 غرام", 2]],
+  "برغر سموكي": [["خبزة برغر", 1], ["شريحة برغر 100 غرام", 2]],
+  "ستيك دجاج": [["خبزة طويلة", 1], ["دجاج ستيك", 0.182]],
+  "فاهيتا أجبان دجاج": [["خبزة طويلة", 1], ["فاهيتا دجاج", 0.25]],
+  "فاهيتا لحم": [["خبزة طويلة", 1], ["فاهيتا لحم", 0.25]],
+  "أفخاذ دجاج": [["خبزة بيضاوية", 1], ["فخذ دجاج", 1]],
+  "تاكوس دجاج": [["تورتيلا 30 سم", 1], ["فاهيتا دجاج", 0.25]],
+  "دبل راب": [["تورتيلا 25 سم", 1], ["دجاج مقلي للراب", 0.182]],
+  "توستر": [["تورتيلا 25 سم", 1], ["دجاج ستربس مقلي", 0.182]],
+  "تشكن رول": [["تورتيلا 30 سم", 1], ["دجاج ستربس مقلي", 0.182]],
+  "غراند تشكن": [["خبزة بيضاوية", 1], ["شريحة غراند تشكن", 1]]
+};
 const itemIcons = {
-  "برجر": ["🥪", "🌯", "🥙", "🍔"],
-  "مشويات": ["🍖", "🥩", "🍗", "🍢"],
-  "مقليات": ["🍟", "🧅", "🍤", "🥔"],
-  "مشروبات": ["🥤", "💧", "🧃", "☕"]
+  "برغر": ["🥪", "🧀", "🍔", "🥙"],
+  "سندوتشات": ["🥙", "🥪", "🌯", "🥩"],
+  "تورتيلا": ["🌯", "🥙", "🥪", "🍗"],
+  "دجاج": ["🍗", "🍖", "🥪", "🌯"],
+  "سناكس": ["🍟", "🧅", "🧀", "🍗"]
 };
 const roles = {
   "Admin": [
@@ -96,16 +153,17 @@ const roles = {
   ]
 };
 const roleScreens = {
-  "Admin": ["dashboard", "pos", "orders", "items", "kitchen", "customer", "printers", "users", "reports", "shifts"],
+  "Admin": ["dashboard", "pos", "orders", "items", "inventory", "kitchen", "customer", "printers", "users", "reports", "shifts"],
   "Cashier": ["pos", "orders", "items"],
   "Kitchen Staff": ["kitchen"],
   "Order Assembly User": ["kitchen", "customer", "items"],
   "Manager / Supervisor": ["dashboard", "orders", "users", "reports", "shifts"]
 };
-const mobileSettingsScreens = ["printers", "users", "reports", "shifts"];
+const mobileSettingsScreens = ["inventory", "printers", "users", "reports", "shifts"];
 const printers = [
   ["طابعة الكاشير", "الفاتورة الكاملة للزبون"],
   ["طابعة القلاية", "الأصناف الخاصة بالقلاية فقط"],
+  ["طابعة سناكس", "الأصناف الخاصة بقسم السناكس فقط"],
   ["طابعة الگرل", "الأصناف الخاصة بالگرل فقط"],
   ["طابعة التجميع", "الطلب كامل للمراجعة والتجهيز"],
   ["طابعة التسليم", "ملخص الطلب الجاهز أو رقم الطلب"]
@@ -116,6 +174,7 @@ const titles = {
   pos: "شاشة الكاشير",
   orders: "الطلبات",
   items: "إدارة الأصناف",
+  inventory: "المخزون",
   kitchen: "شاشة التجميع",
   customer: "شاشة عرض الزبائن",
   printers: "إدارة الطابعات",
@@ -177,6 +236,7 @@ function loadSavedProducts() {
     const saved = JSON.parse(localStorage.getItem(PRODUCTS_STORAGE_KEY));
     if (Array.isArray(saved)) state.products = saved;
     normalizeProductIcons();
+    normalizeProductRecipes();
     saveProducts();
   } catch {
     localStorage.removeItem(PRODUCTS_STORAGE_KEY);
@@ -189,9 +249,103 @@ function saveProducts() {
 
 function normalizeProductIcons() {
   state.products.forEach((product) => {
-    if (product.category === "برجر" && product.icon === "🍔") product.icon = "🥪";
-    if (product.category === "مشويات" && product.icon === "🍗") product.icon = "🍖";
-    if (product.category === "مشروبات" && !["🥤", "💧"].includes(product.icon)) product.icon = "🥤";
+    if (product.category === "برجر") product.category = "برغر";
+    if (product.category === "مشويات") product.category = "سندوتشات";
+    if (product.category === "مقليات") product.category = "سناكس";
+    if (product.category === "سناكس" && product.station === "القلاية") product.station = "سناكس";
+    if (!product.ingredients) product.ingredients = [];
+    if (!itemIcons[product.category]?.includes(product.icon)) product.icon = getDefaultIconForCategory(product.category);
+  });
+}
+
+function loadSavedInventory() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(INVENTORY_STORAGE_KEY));
+    state.inventory = Array.isArray(saved) && saved.length ? saved : structuredClone(defaultInventoryItems);
+  } catch {
+    state.inventory = structuredClone(defaultInventoryItems);
+    localStorage.removeItem(INVENTORY_STORAGE_KEY);
+  }
+  normalizeInventoryItems();
+  saveInventory();
+}
+
+function loadSavedInventoryTransactions() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(INVENTORY_TX_STORAGE_KEY));
+    state.inventoryTransactions = Array.isArray(saved) ? saved : [];
+  } catch {
+    state.inventoryTransactions = [];
+    localStorage.removeItem(INVENTORY_TX_STORAGE_KEY);
+  }
+}
+
+function loadInventorySettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(INVENTORY_SETTINGS_STORAGE_KEY));
+    if (saved && typeof saved === "object") {
+      state.inventorySettings = {
+        ...state.inventorySettings,
+        allowNegativeStock: Boolean(saved.allowNegativeStock)
+      };
+    }
+  } catch {
+    localStorage.removeItem(INVENTORY_SETTINGS_STORAGE_KEY);
+  }
+}
+
+function saveInventory() {
+  localStorage.setItem(INVENTORY_STORAGE_KEY, JSON.stringify(state.inventory));
+}
+
+function saveInventoryTransactions() {
+  localStorage.setItem(INVENTORY_TX_STORAGE_KEY, JSON.stringify(state.inventoryTransactions));
+}
+
+function saveInventorySettings() {
+  localStorage.setItem(INVENTORY_SETTINGS_STORAGE_KEY, JSON.stringify(state.inventorySettings));
+}
+
+function normalizeInventoryItems() {
+  const existingNames = new Set(state.inventory.map((item) => item.name));
+  defaultInventoryItems.forEach((item) => {
+    if (!existingNames.has(item.name)) state.inventory.push({ ...item });
+  });
+  state.inventory.forEach((item) => {
+    item.id = item.id || `inv-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    item.type = item.type || "other";
+    item.unit = item.unit || "piece";
+    item.current_quantity = Number(item.current_quantity) || 0;
+    item.minimum_quantity = Number(item.minimum_quantity) || 0;
+    item.is_active = item.is_active !== false;
+  });
+}
+
+function getInventoryItemByName(name) {
+  return state.inventory.find((item) => item.name === name);
+}
+
+function recipeFromDefault(productName) {
+  return (defaultProductRecipes[productName] || [])
+    .map(([inventoryName, quantity]) => {
+      const inventoryItem = getInventoryItemByName(inventoryName) || defaultInventoryItems.find((item) => item.name === inventoryName);
+      return inventoryItem ? { inventory_item_id: inventoryItem.id, quantity_per_item: Number(quantity) } : null;
+    })
+    .filter(Boolean);
+}
+
+function normalizeProductRecipes() {
+  state.products.forEach((product) => {
+    if (!Array.isArray(product.recipe) || !product.recipe.length) {
+      product.recipe = recipeFromDefault(product.name);
+    } else {
+      product.recipe = product.recipe
+        .map((row) => ({
+          inventory_item_id: row.inventory_item_id || row.inventoryId || row.id,
+          quantity_per_item: Number(row.quantity_per_item ?? row.qty ?? row.quantity) || 0
+        }))
+        .filter((row) => row.inventory_item_id && row.quantity_per_item > 0);
+    }
   });
 }
 
@@ -201,7 +355,7 @@ function getDefaultIconForCategory(category) {
 }
 
 function renderItemIconOptions(selectedIcon = null) {
-  const category = $("#itemCategory").value || "برجر";
+  const category = $("#itemCategory").value || "برغر";
   const icons = itemIcons[category] || ["🍽"];
   const selected = selectedIcon && icons.includes(selectedIcon) ? selectedIcon : icons[0];
   $("#itemIcon").innerHTML = icons.map((icon) => `<option value="${icon}" ${icon === selected ? "selected" : ""}>${icon}</option>`).join("");
@@ -292,6 +446,7 @@ function applyUserPermissions() {
   });
   document.body.classList.toggle("product-status-only", !canEditProducts());
   $("#itemForm").hidden = !canEditProducts();
+  $("#inventoryForm").hidden = state.currentUser?.role !== "Admin";
   $("#userForm").hidden = state.currentUser?.role !== "Admin";
   $(".user-chip").textContent = state.currentUser?.name || "المدير";
   updateMobileSettingsNav();
@@ -341,8 +496,53 @@ function renderCategories() {
 function renderOrderTypes() {
   renderButtons("#orderTypes", orderTypes, state.orderType, (value) => {
     state.orderType = value;
+    if (requiresCustomerInfo(value)) openCustomerInfoModal();
     renderOrderTypes();
   });
+}
+
+function requiresCustomerInfo(type) {
+  return type === "توصيل" || type === "استلام";
+}
+
+function openCustomerInfoModal() {
+  const modal = document.createElement("div");
+  modal.className = "customer-info-modal";
+  modal.innerHTML = `
+    <form class="customer-info-dialog" id="customerInfoForm">
+      <div class="modifier-head">
+        <div>
+          <strong>بيانات ${state.orderType}</strong>
+          <span>تظهر في طباعة الكاشير والتسليم والتجميع</span>
+        </div>
+        <button class="ghost-small" type="button" data-close-customer-info>إغلاق</button>
+      </div>
+      <label>
+        <span>اسم الزبون</span>
+        <input id="customerInfoName" type="text" value="${state.customerInfo.name || ""}" placeholder="اسم الزبون">
+      </label>
+      <label>
+        <span>رقم الهاتف</span>
+        <input id="customerInfoPhone" type="tel" inputmode="tel" value="${state.customerInfo.phone || ""}" placeholder="09xxxxxxxx">
+      </label>
+      <button class="primary-btn" type="submit">حفظ البيانات</button>
+    </form>
+  `;
+  const close = () => modal.remove();
+  modal.querySelector("[data-close-customer-info]").addEventListener("click", close);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) close();
+  });
+  modal.querySelector("#customerInfoForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    state.customerInfo = {
+      name: modal.querySelector("#customerInfoName").value.trim(),
+      phone: modal.querySelector("#customerInfoPhone").value.trim()
+    };
+    close();
+  });
+  document.body.appendChild(modal);
+  modal.querySelector("#customerInfoName").focus();
 }
 
 function renderPaymentMethods() {
@@ -370,9 +570,9 @@ function renderProducts() {
 
 function addToCart(name) {
   const product = state.products.find((item) => item.name === name);
-  const plainLine = state.cart.find((item) => item.name === name && (!item.notes || item.notes.length === 0));
-  if (plainLine) plainLine.qty += 1;
-  else state.cart.push({ ...product, lineId: Date.now() + Math.random(), qty: 1, notes: [] });
+  const existingLine = state.cart.find((item) => item.name === name);
+  if (existingLine) existingLine.qty += 1;
+  else state.cart.push({ ...product, lineId: Date.now() + Math.random(), qty: 1, notes: [], modifiers: [] });
   renderCart();
 }
 
@@ -382,6 +582,69 @@ function changeQty(lineId, delta) {
   item.qty += delta;
   state.cart = state.cart.filter((line) => line.qty > 0);
   renderCart();
+}
+
+function normalizeIngredientName(value) {
+  return String(value || "")
+    .replace(/^\d+\s*/, "")
+    .replace(/120\s*غرام|100\s*غرام/g, "")
+    .replace(/شريحة|شرائح|صدر|دجاج|برغر|متبل|مقلي|مقلية|مشوية|مشوي|خبزة|خبز|طويلة|بيضاوية|تورتيلا/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function simplifyIngredientName(value) {
+  const clean = normalizeIngredientName(value);
+  if (!clean) return "";
+  if (clean.includes("صوص ماك")) return "صوص ماك";
+  if (clean.includes("صوص حار")) return "صوص حار";
+  if (clean.includes("صوص")) return "صوص";
+  if (clean.includes("هريسة")) return "هريسة";
+  if (clean.includes("جبنة") || clean.includes("أجبان")) return "جبنة";
+  if (clean.includes("سلطة") || clean.includes("كولوسلو")) return clean.includes("كولوسلو") ? "كولوسلو" : "سلطة";
+  if (clean.includes("فلفل")) return clean.includes("هلابينو") ? "فلفل هلابينو" : "فلفل";
+  if (clean.includes("طماطم")) return "طماطم";
+  if (clean.includes("بصل")) return "بصل";
+  if (clean.includes("مايونيز")) return "مايونيز";
+  if (clean.includes("كاتشب")) return "كاتشب";
+  if (clean.includes("مخلل")) return "خيار مخلل";
+  if (clean.includes("بطاطا")) return "بطاطا مقلية";
+  if (clean.includes("لانشون")) return "لانشون";
+  return clean;
+}
+
+function getModifierIngredients(item) {
+  const product = state.products.find((productItem) => productItem.name === item.name) || item;
+  const productIngredients = (product.ingredients || item.ingredients || [])
+    .map(simplifyIngredientName)
+    .filter(Boolean);
+  return [...new Set([...productIngredients, ...commonModifierIngredients])].slice(0, 18);
+}
+
+function getLineModifiers(item) {
+  return Array.isArray(item.modifiers) ? item.modifiers : [];
+}
+
+function formatModifier(modifier) {
+  if (Array.isArray(modifier.parts) && modifier.parts.length) {
+    return `${modifier.qty} ${modifier.parts.map((part) => `${part.action} ${part.ingredient}`).join(" و ")}`;
+  }
+  const ingredients = Array.isArray(modifier.ingredients)
+    ? modifier.ingredients.join("، ")
+    : modifier.ingredient;
+  return `${modifier.qty} ${modifier.action} ${ingredients}`;
+}
+
+function renderModifierSummary(item) {
+  const modifiers = getLineModifiers(item);
+  const legacyNotes = item.notes || [];
+  if (!modifiers.length && !legacyNotes.length) return "";
+  return `
+    <div class="modifier-summary">
+      ${modifiers.map((modifier) => `<span>${formatModifier(modifier)}</span>`).join("")}
+      ${legacyNotes.map((note) => `<span>${note}</span>`).join("")}
+    </div>
+  `;
 }
 
 function renderCart() {
@@ -394,11 +657,8 @@ function renderCart() {
         <div class="cart-main">
           <strong>${item.name}</strong>
           <small>${item.station}</small>
-          <div class="note-chips">
-            ${notePresets.map((note) => `
-              <button class="${item.notes?.includes(note.code) ? "active" : ""}" type="button" title="${note.label}" data-note-line="${item.lineId}" data-note-code="${note.code}">${note.code}</button>
-            `).join("")}
-          </div>
+          ${renderModifierSummary(item)}
+          <button class="modifier-open-btn" type="button" data-modifier-line="${item.lineId}">الإضافات</button>
         </div>
         <div class="qty-control">
           <button type="button" data-qty="${item.lineId}" data-delta="-1">-</button>
@@ -415,8 +675,8 @@ function renderCart() {
   $("#total").textContent = formatMoney(total);
   $("#cartMiniTotal").textContent = `${state.cart.reduce((sum, item) => sum + Number(item.qty || 0), 0)} صنف - ${formatMoney(total)}`;
   $$("#cartItems button").forEach((button) => {
-    if (button.dataset.noteLine) {
-      button.addEventListener("click", () => toggleItemNote(button.dataset.noteLine, button.dataset.noteCode));
+    if (button.dataset.modifierLine) {
+      button.addEventListener("click", () => openModifierEditor(button.dataset.modifierLine));
     } else {
       button.addEventListener("click", () => changeQty(button.dataset.qty, Number(button.dataset.delta)));
     }
@@ -432,6 +692,145 @@ function toggleCartCollapse(forceOpen = null) {
   $("#cartCollapseToggle").setAttribute("aria-expanded", String(!collapsed));
 }
 
+function openModifierEditor(lineId) {
+  const item = state.cart.find((line) => String(line.lineId) === String(lineId));
+  if (!item) return;
+  item.modifiers = getLineModifiers(item);
+  let selectedQty = 1;
+  let selectedAction = modifierActions[0];
+  let draftParts = [];
+  const ingredients = getModifierIngredients(item);
+  const modal = document.createElement("div");
+  modal.className = "modifier-modal";
+  modal.innerHTML = `
+    <div class="modifier-dialog" role="dialog" aria-modal="true" aria-label="إضافات ${item.name}">
+      <div class="modifier-head">
+        <div>
+          <strong>${item.name}</strong>
+          <span>${item.qty} في السلة</span>
+        </div>
+        <button class="ghost-small" type="button" data-close-modifier>إغلاق</button>
+      </div>
+      <div class="modifier-section">
+        <label>الكمية</label>
+        <div class="modifier-picks" data-modifier-qtys>
+          ${Array.from({ length: Math.max(1, Number(item.qty) || 1) }, (_, index) => index + 1).map((qty) => `
+            <button class="${qty === selectedQty ? "active" : ""}" type="button" data-pick-qty="${qty}">${qty}</button>
+          `).join("")}
+        </div>
+      </div>
+      <div class="modifier-section">
+        <label>العملية</label>
+        <div class="modifier-picks" data-modifier-actions>
+          ${modifierActions.map((action) => `
+            <button class="${action === selectedAction ? "active" : ""}" type="button" data-pick-action="${action}">${action}</button>
+          `).join("")}
+        </div>
+      </div>
+      <div class="modifier-section">
+        <label>مكونات الصنف</label>
+        <div class="ingredient-picks">
+          ${ingredients.map((ingredient) => `
+            <button type="button" data-pick-ingredient="${ingredient}">${ingredient}</button>
+          `).join("")}
+        </div>
+        <div class="modifier-selection" data-modifier-selection>اختر العملية ثم المكون، ويمكن تغيير العملية وإضافة مكون ثاني</div>
+        <div class="modifier-draft-actions">
+          <button class="primary-small modifier-add-btn" type="button" data-add-modifier>تم</button>
+          <button class="ghost-small" type="button" data-clear-draft>مسح الاختيار</button>
+        </div>
+      </div>
+      <div class="modifier-section">
+        <label>الملاحظات المسجلة</label>
+        <div class="modifier-list" data-modifier-list></div>
+      </div>
+      <button class="primary-btn" type="button" data-close-modifier>تأكيد</button>
+    </div>
+  `;
+
+  const refreshActive = () => {
+    modal.querySelectorAll("[data-pick-qty]").forEach((button) => button.classList.toggle("active", Number(button.dataset.pickQty) === selectedQty));
+    modal.querySelectorAll("[data-pick-action]").forEach((button) => button.classList.toggle("active", button.dataset.pickAction === selectedAction));
+    const selection = modal.querySelector("[data-modifier-selection]");
+    selection.textContent = draftParts.length
+      ? `${selectedQty} ${draftParts.map((part) => `${part.action} ${part.ingredient}`).join(" و ")}`
+      : "اختر العملية ثم المكون، ويمكن تغيير العملية وإضافة مكون ثاني";
+  };
+  const refreshList = () => {
+    const list = modal.querySelector("[data-modifier-list]");
+    if (!item.modifiers.length) {
+      list.innerHTML = `<p>لا توجد إضافات لهذا الصنف.</p>`;
+      return;
+    }
+    list.innerHTML = item.modifiers.map((modifier, index) => `
+      <div class="modifier-row">
+        <span>${formatModifier(modifier)}</span>
+        <button class="danger-small" type="button" data-remove-modifier="${index}">حذف</button>
+      </div>
+    `).join("");
+    modal.querySelectorAll("[data-remove-modifier]").forEach((button) => {
+      button.addEventListener("click", () => {
+        item.modifiers.splice(Number(button.dataset.removeModifier), 1);
+        refreshList();
+        renderCart();
+      });
+    });
+  };
+  const closeModal = () => {
+    modal.remove();
+    renderCart();
+  };
+
+  modal.querySelectorAll("[data-close-modifier]").forEach((button) => button.addEventListener("click", closeModal));
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeModal();
+  });
+  modal.querySelectorAll("[data-pick-qty]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedQty = Number(button.dataset.pickQty);
+      refreshActive();
+    });
+  });
+  modal.querySelectorAll("[data-pick-action]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedAction = button.dataset.pickAction;
+      refreshActive();
+    });
+  });
+  modal.querySelectorAll("[data-pick-ingredient]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const ingredient = button.dataset.pickIngredient;
+      const exists = draftParts.some((part) => part.action === selectedAction && part.ingredient === ingredient);
+      if (!exists) draftParts.push({ action: selectedAction, ingredient });
+      refreshActive();
+    });
+  });
+  modal.querySelector("[data-add-modifier]").addEventListener("click", () => {
+    if (!draftParts.length) return;
+    const key = draftParts.map((part) => `${part.action}:${part.ingredient}`).join("|");
+    const existing = item.modifiers.find((modifier) => {
+      const existingKey = Array.isArray(modifier.parts)
+        ? modifier.parts.map((part) => `${part.action}:${part.ingredient}`).join("|")
+        : `${modifier.action}:${Array.isArray(modifier.ingredients) ? modifier.ingredients.join(",") : modifier.ingredient}`;
+      return existingKey === key;
+    });
+    if (existing) existing.qty += selectedQty;
+    else item.modifiers.push({ qty: selectedQty, parts: draftParts.map((part) => ({ ...part })) });
+    draftParts = [];
+    refreshList();
+    refreshActive();
+    renderCart();
+  });
+  modal.querySelector("[data-clear-draft]").addEventListener("click", () => {
+    draftParts = [];
+    refreshActive();
+  });
+
+  document.body.appendChild(modal);
+  refreshList();
+  refreshActive();
+}
+
 function toggleItemNote(lineId, code) {
   const item = state.cart.find((line) => String(line.lineId) === String(lineId));
   if (!item) return;
@@ -443,6 +842,10 @@ function toggleItemNote(lineId, code) {
 
 function confirmOrder() {
   if (!state.cart.length) return;
+  if (requiresCustomerInfo(state.orderType) && (!state.customerInfo.name || !state.customerInfo.phone)) {
+    openCustomerInfoModal();
+    return;
+  }
   const total = state.cart.reduce((sum, item) => sum + item.price * item.qty, 0);
   const orderPayload = {
     type: state.orderType,
@@ -452,9 +855,35 @@ function confirmOrder() {
     time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
     createdAt: Date.now(),
     payment: normalizePayment(state.payment),
+    customer: requiresCustomerInfo(state.orderType) ? { ...state.customerInfo } : null,
     note: $("#orderNote").value.trim(),
-    items: state.cart.map(({ name, qty, price, notes }) => ({ name, qty, price: Number(price) || 0, notes: notes || [] }))
+    items: state.cart.map(({ name, qty, price, notes, modifiers }) => ({
+      name,
+      qty,
+      price: Number(price) || 0,
+      notes: notes || [],
+      modifiers: modifiers || []
+    }))
   };
+  const editingOrder = state.editingOrderId ? state.orders.find((order) => order.id === Number(state.editingOrderId)) : null;
+  let returnedForEdit = false;
+  if (editingOrder && editingOrder.status !== "ملغي" && !editingOrder.inventoryReturned) {
+    applyInventoryMovement(editingOrder.items, "return", editingOrder.id, 1, "إرجاع مؤقت قبل تعديل الطلب");
+    editingOrder.inventoryReturned = true;
+    returnedForEdit = true;
+  }
+  const insufficient = getInsufficientStock(orderPayload.items);
+  if (insufficient.length && !state.inventorySettings.allowNegativeStock) {
+    if (returnedForEdit) {
+      applyInventoryMovement(editingOrder.items, "sale", editingOrder.id, -1, "إعادة خصم بعد إلغاء التعديل");
+      editingOrder.inventoryReturned = false;
+    }
+    showStockWarning(insufficient);
+    return;
+  }
+  if (insufficient.length && state.inventorySettings.allowNegativeStock) {
+    console.warn("تنبيه بيع بمخزون غير كافٍ", insufficient.map(({ item, required, available }) => `${item.name}: ${formatQty(required)} / ${formatQty(available)}`));
+  }
   let savedOrder;
   if (state.editingOrderId) {
     savedOrder = state.orders.find((order) => order.id === Number(state.editingOrderId));
@@ -467,9 +896,11 @@ function confirmOrder() {
       modifiedBy: state.currentUser?.name || "المدير",
       modifiedAt: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
       modifiedAtMs: Date.now(),
-      modifiedAlert: editIsLate
+      modifiedAlert: editIsLate,
+      inventoryReturned: false
     });
     state.editingOrderId = null;
+    if (savedOrder.status !== "ملغي") deductInventoryForOrder(savedOrder);
     printOrder(savedOrder, "تعديل طلب");
   } else {
     savedOrder = {
@@ -479,9 +910,11 @@ function confirmOrder() {
     };
     state.orders.unshift(savedOrder);
     state.nextOrder += 1;
+    deductInventoryForOrder(savedOrder);
     printOrder(savedOrder, "فاتورة طلب");
   }
   state.cart = [];
+  state.customerInfo = { name: "", phone: "" };
   $("#confirmOrder").textContent = "تأكيد الطلب وطباعة";
   $("#currentOrder").textContent = `#${state.nextOrder}`;
   $("#orderNote").value = "";
@@ -559,6 +992,7 @@ function editOrder(id) {
   state.editingOrderId = order.id;
   state.orderType = order.type;
   state.payment = normalizePayment(order.payment);
+  state.customerInfo = order.customer ? { ...order.customer } : { name: "", phone: "" };
   state.cart = order.items.map((item) => {
     const product = state.products.find((productItem) => productItem.name === item.name) || {};
     return {
@@ -568,7 +1002,8 @@ function editOrder(id) {
       station: product.station || "التجميع",
       lineId: Date.now() + Math.random(),
       qty: item.qty,
-      notes: item.notes || []
+      notes: item.notes || [],
+      modifiers: item.modifiers || []
     };
   });
   $("#orderNote").value = order.note || "";
@@ -587,6 +1022,7 @@ function deleteOrder(id) {
   order.deletedAt = new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   order.deletedAtMs = Date.now();
   order.cancelAlert = true;
+  returnInventoryForOrder(order);
   saveOrders();
   printOrder(order, "إلغاء طلب");
   renderAll();
@@ -595,6 +1031,68 @@ function deleteOrder(id) {
 function canManageOrder(order) {
   const role = state.currentUser?.role || "Admin";
   return role === "Admin" || role === "Manager / Supervisor" || role === "Cashier";
+}
+
+function buildInventoryRequirements(items) {
+  const requirements = new Map();
+  items.forEach((orderItem) => {
+    const product = state.products.find((productItem) => productItem.name === orderItem.name);
+    const recipe = product?.recipe || orderItem.recipe || [];
+    recipe.forEach((row) => {
+      const inventoryId = row.inventory_item_id;
+      const qty = Number(orderItem.qty || 0) * Number(row.quantity_per_item || 0);
+      if (!inventoryId || qty <= 0) return;
+      requirements.set(inventoryId, (requirements.get(inventoryId) || 0) + qty);
+    });
+  });
+  return requirements;
+}
+
+function getInsufficientStock(items) {
+  const requirements = buildInventoryRequirements(items);
+  return [...requirements.entries()]
+    .map(([inventoryId, required]) => {
+      const item = state.inventory.find((inventoryItem) => String(inventoryItem.id) === String(inventoryId));
+      if (!item) return null;
+      const available = Number(item.current_quantity) || 0;
+      return available < required ? { item, required, available } : null;
+    })
+    .filter(Boolean);
+}
+
+function showStockWarning(insufficient) {
+  const lines = insufficient
+    .map(({ item, required, available }) => `- ${item.name}: المطلوب ${formatQty(required)}، المتوفر ${formatQty(available)}`)
+    .join("\n");
+  alert(`المخزون غير كافٍ:\n${lines}`);
+}
+
+function applyInventoryMovement(items, transactionType, orderId, multiplier, note) {
+  const requirements = buildInventoryRequirements(items);
+  requirements.forEach((required, inventoryId) => {
+    const item = state.inventory.find((inventoryItem) => String(inventoryItem.id) === String(inventoryId));
+    if (!item) return;
+    const before = Number(item.current_quantity) || 0;
+    const quantity = required * multiplier;
+    const after = before + quantity;
+    item.current_quantity = after;
+    recordInventoryTransaction(item, transactionType, quantity, before, after, orderId, note);
+  });
+  saveInventory();
+}
+
+function deductInventoryForOrder(order) {
+  applyInventoryMovement(order.items, "sale", order.id, -1, "خصم بيع");
+  const lowItems = state.inventory.filter((item) => item.is_active && Number(item.current_quantity) <= Number(item.minimum_quantity));
+  if (lowItems.length) {
+    console.warn("تنبيه مخزون منخفض", lowItems.map((item) => `${item.name}: ${formatQty(item.current_quantity)}`));
+  }
+}
+
+function returnInventoryForOrder(order) {
+  if (order.inventoryReturned) return;
+  applyInventoryMovement(order.items, "return", order.id, 1, "إرجاع بعد إلغاء الطلب");
+  order.inventoryReturned = true;
 }
 
 function printOrderById(id, title) {
@@ -609,13 +1107,21 @@ function getOrderItemPrice(item) {
   return Number(product?.price || 0);
 }
 
+function renderCustomerInfo(order) {
+  if (!order.customer || (!order.customer.name && !order.customer.phone)) return "";
+  return `
+    <p>الزبون: ${order.customer.name || "-"}</p>
+    <p>الهاتف: ${order.customer.phone || "-"}</p>
+  `;
+}
+
 function printOrder(order, title) {
   const rows = order.items.map((item) => {
     const qty = Number(item.qty || 0);
     const price = getOrderItemPrice(item);
     return `
       <tr>
-        <td>${item.name}${renderItemNotes(item)}</td>
+        <td>${item.name}</td>
         <td>${qty}</td>
         <td>${formatMoney(price)}</td>
         <td>${formatMoney(price * qty)}</td>
@@ -661,6 +1167,7 @@ function printOrder(order, title) {
       <h2>${title} #${order.id}</h2>
       <div class="meta">
         <p>النوع: ${order.type}</p>
+        ${renderCustomerInfo(order)}
         <p>الحالة: ${order.status}</p>
         <p>الكاشير: ${order.cashier}</p>
         <p>الدفع: ${normalizePayment(order.payment)}</p>
@@ -717,12 +1224,169 @@ function updateProductStatus(id, available) {
   renderItemsTable();
 }
 
+function formatQty(value) {
+  const number = Number(value) || 0;
+  return Number.isInteger(number) ? String(number) : number.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function renderInventory() {
+  if (!$("#inventoryTable")) return;
+  $("#allowNegativeStock").checked = Boolean(state.inventorySettings.allowNegativeStock);
+  $("#inventoryTable").innerHTML = state.inventory.map((item) => {
+    const low = Number(item.current_quantity) <= Number(item.minimum_quantity);
+    return `
+      <tr class="${low ? "low-stock-row" : ""}">
+        <td>${item.name}</td>
+        <td>${item.type}</td>
+        <td>${item.unit}</td>
+        <td>${formatQty(item.current_quantity)}</td>
+        <td>${formatQty(item.minimum_quantity)}</td>
+        <td><span class="status-pill ${item.is_active ? "on" : "cancel"}">${item.is_active ? "نشط" : "موقوف"}</span></td>
+        <td>
+          <div class="stock-add-row">
+            <input type="number" min="0" step="0.001" placeholder="مثال 200" data-stock-add-input="${item.id}">
+            <button class="ghost-small" type="button" data-stock-add="${item.id}">إضافة</button>
+          </div>
+        </td>
+        <td><button class="primary-small" type="button" data-edit-inventory="${item.id}">تعديل</button></td>
+      </tr>
+    `;
+  }).join("");
+  if (!state.inventory.length) {
+    $("#inventoryTable").innerHTML = `<tr><td colspan="8">لا توجد مواد مخزون.</td></tr>`;
+  }
+  $$("#inventoryTable [data-edit-inventory]").forEach((button) => {
+    button.addEventListener("click", () => editInventoryItem(button.dataset.editInventory));
+  });
+  $$("#inventoryTable [data-stock-add]").forEach((button) => {
+    button.addEventListener("click", () => addInventoryPurchase(button.dataset.stockAdd));
+  });
+  renderInventoryTransactions();
+}
+
+function renderInventoryTransactions() {
+  if (!$("#inventoryTransactionsTable")) return;
+  const recent = [...state.inventoryTransactions].sort((a, b) => Number(b.created_at_ms || 0) - Number(a.created_at_ms || 0)).slice(0, 80);
+  $("#inventoryTransactionsTable").innerHTML = recent.map((tx) => {
+    const item = state.inventory.find((inventoryItem) => String(inventoryItem.id) === String(tx.inventory_item_id));
+    return `
+      <tr>
+        <td>${tx.created_at || ""}</td>
+        <td>${item?.name || tx.inventory_item_id}</td>
+        <td>${tx.transaction_type}</td>
+        <td>${formatQty(tx.quantity)}</td>
+        <td>${formatQty(tx.quantity_before)}</td>
+        <td>${formatQty(tx.quantity_after)}</td>
+        <td>${tx.order_id ? `#${tx.order_id}` : "-"}</td>
+        <td>${tx.user_id || "-"}</td>
+        <td>${tx.note || ""}</td>
+      </tr>
+    `;
+  }).join("");
+  if (!recent.length) {
+    $("#inventoryTransactionsTable").innerHTML = `<tr><td colspan="9">لا توجد حركات مخزون بعد.</td></tr>`;
+  }
+}
+
+function resetInventoryForm() {
+  state.editingInventoryId = null;
+  $("#inventoryFormTitle").textContent = "إضافة مادة مخزون";
+  $("#inventoryForm").reset();
+  $("#inventoryType").value = "bread";
+  $("#inventoryUnit").value = "piece";
+  $("#inventoryActive").checked = true;
+  $("#allowNegativeStock").checked = Boolean(state.inventorySettings.allowNegativeStock);
+}
+
+function editInventoryItem(id) {
+  const item = state.inventory.find((inventoryItem) => String(inventoryItem.id) === String(id));
+  if (!item) return;
+  state.editingInventoryId = item.id;
+  $("#inventoryFormTitle").textContent = "تعديل مادة مخزون";
+  $("#inventoryName").value = item.name;
+  $("#inventoryType").value = item.type;
+  $("#inventoryUnit").value = item.unit;
+  $("#inventoryCurrentQty").value = item.current_quantity;
+  $("#inventoryMinimumQty").value = item.minimum_quantity;
+  $("#inventoryActive").checked = item.is_active;
+}
+
+function saveInventoryItem(event) {
+  event.preventDefault();
+  if (state.currentUser?.role !== "Admin") return;
+  state.inventorySettings.allowNegativeStock = $("#allowNegativeStock").checked;
+  saveInventorySettings();
+  const data = {
+    name: $("#inventoryName").value.trim(),
+    type: $("#inventoryType").value,
+    unit: $("#inventoryUnit").value,
+    current_quantity: Number($("#inventoryCurrentQty").value) || 0,
+    minimum_quantity: Number($("#inventoryMinimumQty").value) || 0,
+    is_active: $("#inventoryActive").checked
+  };
+  if (!data.name) return;
+  if (state.editingInventoryId) {
+    const item = state.inventory.find((inventoryItem) => String(inventoryItem.id) === String(state.editingInventoryId));
+    if (!item) return;
+    const before = Number(item.current_quantity) || 0;
+    Object.assign(item, data);
+    if (before !== data.current_quantity) {
+      recordInventoryTransaction(item, "adjustment", data.current_quantity - before, before, data.current_quantity, null, "تعديل يدوي للكمية");
+    }
+  } else {
+    const item = { id: `inv-${Date.now()}`, ...data };
+    state.inventory.push(item);
+    if (data.current_quantity !== 0) {
+      recordInventoryTransaction(item, "purchase", data.current_quantity, 0, data.current_quantity, null, "إضافة مادة مخزون");
+    }
+  }
+  saveInventory();
+  normalizeProductRecipes();
+  saveProducts();
+  resetInventoryForm();
+  renderInventory();
+  renderRecipeEditor(getRecipeFromEditor());
+}
+
+function addInventoryPurchase(id) {
+  if (state.currentUser?.role !== "Admin") return;
+  const item = state.inventory.find((inventoryItem) => String(inventoryItem.id) === String(id));
+  const input = $(`[data-stock-add-input="${id}"]`);
+  const quantity = Number(input?.value);
+  if (!item || !Number.isFinite(quantity) || quantity <= 0) return;
+  const before = Number(item.current_quantity) || 0;
+  const after = before + quantity;
+  item.current_quantity = after;
+  recordInventoryTransaction(item, "purchase", quantity, before, after, null, "إضافة كمية واردة");
+  saveInventory();
+  input.value = "";
+  renderInventory();
+}
+
+function recordInventoryTransaction(item, transactionType, quantity, before, after, orderId = null, note = "") {
+  state.inventoryTransactions.unshift({
+    id: `tx-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    inventory_item_id: item.id,
+    order_id: orderId,
+    transaction_type: transactionType,
+    quantity: Number(quantity) || 0,
+    quantity_before: Number(before) || 0,
+    quantity_after: Number(after) || 0,
+    user_id: state.currentUser?.email || state.currentUser?.name || "",
+    note,
+    created_at: new Date().toLocaleString("ar-LY"),
+    created_at_ms: Date.now()
+  });
+  saveInventoryTransactions();
+}
+
 function resetItemForm() {
   state.editingProductId = null;
   $("#itemFormTitle").textContent = "إضافة صنف";
   $("#itemForm").reset();
-  $("#itemCategory").value = "برجر";
+  $("#itemCategory").value = "برغر";
   renderItemIconOptions();
+  renderRecipeEditor([]);
   $("#itemAvailable").checked = true;
 }
 
@@ -738,11 +1402,59 @@ function editProduct(id) {
   $("#itemStation").value = product.station;
   renderItemIconOptions(product.icon);
   $("#itemAvailable").checked = product.available;
+  renderRecipeEditor(product.recipe || []);
   setScreen("items");
 }
 
 function syncItemIconWithCategory() {
   renderItemIconOptions();
+}
+
+function renderRecipeEditor(recipe = []) {
+  const root = $("#recipeRows");
+  if (!root) return;
+  const rows = recipe.length ? recipe : [{ inventory_item_id: "", quantity_per_item: 1 }];
+  root.innerHTML = rows.map((row) => renderRecipeRow(row)).join("");
+  bindRecipeRowButtons();
+}
+
+function renderRecipeRow(row = {}) {
+  const activeInventory = state.inventory.filter((item) => item.is_active);
+  return `
+    <div class="recipe-row">
+      <select class="recipe-inventory">
+        <option value="">اختر مادة</option>
+        ${activeInventory.map((item) => `
+          <option value="${item.id}" ${String(row.inventory_item_id || "") === String(item.id) ? "selected" : ""}>${item.name} (${item.unit})</option>
+        `).join("")}
+      </select>
+      <input class="recipe-quantity" type="number" min="0" step="0.001" value="${Number(row.quantity_per_item || 1)}">
+      <button class="danger-small" type="button" data-remove-recipe>Remove</button>
+    </div>
+  `;
+}
+
+function bindRecipeRowButtons() {
+  $$("#recipeRows [data-remove-recipe]").forEach((button) => {
+    button.addEventListener("click", () => {
+      button.closest(".recipe-row").remove();
+      if (!$("#recipeRows").children.length) addRecipeEditorRow();
+    });
+  });
+}
+
+function addRecipeEditorRow() {
+  $("#recipeRows").insertAdjacentHTML("beforeend", renderRecipeRow());
+  bindRecipeRowButtons();
+}
+
+function getRecipeFromEditor() {
+  return $$("#recipeRows .recipe-row")
+    .map((row) => ({
+      inventory_item_id: row.querySelector(".recipe-inventory")?.value,
+      quantity_per_item: Number(row.querySelector(".recipe-quantity")?.value)
+    }))
+    .filter((row) => row.inventory_item_id && row.quantity_per_item > 0);
 }
 
 function saveProduct(event) {
@@ -754,7 +1466,8 @@ function saveProduct(event) {
     category: $("#itemCategory").value.trim(),
     station: $("#itemStation").value,
     icon: $("#itemIcon").value.trim() || "🍽",
-    available: $("#itemAvailable").checked
+    available: $("#itemAvailable").checked,
+    recipe: getRecipeFromEditor()
   };
   if (state.editingProductId) {
     const product = state.products.find((item) => item.id === state.editingProductId);
@@ -779,6 +1492,7 @@ function renderKitchen() {
     <article class="kitchen-card">
       <h3>#${order.id}</h3>
       <span class="status-pill wait">${order.type}</span>
+      ${order.customer ? `<p class="customer-kitchen-info">${order.customer.name || "-"} - ${order.customer.phone || "-"}</p>` : ""}
       <p>${order.time}</p>
       <ul>${order.items.map((item) => `<li><span>${item.name}${renderItemNotes(item)}</span><b>${item.qty}x</b></li>`).join("")}</ul>
       <button class="primary-small" type="button" data-ready="${order.id}">الطلب جاهز</button>
@@ -829,8 +1543,12 @@ function acknowledgeKitchenAlert(id, type) {
 }
 
 function renderItemNotes(item) {
-  if (!item.notes || !item.notes.length) return "";
-  return `<em class="kitchen-notes">${item.notes.join("، ")}</em>`;
+  const notes = [
+    ...getLineModifiers(item).map(formatModifier),
+    ...(item.notes || [])
+  ];
+  if (!notes.length) return "";
+  return `<em class="kitchen-notes">${notes.join("، ")}</em>`;
 }
 
 function renderPrepGroups(orders) {
@@ -1416,6 +2134,7 @@ function renderAll() {
   renderCart();
   renderOrdersTable();
   renderItemsTable();
+  renderInventory();
   renderKitchen();
   renderCustomerDisplay();
   renderPaymentSummary();
@@ -1427,6 +2146,9 @@ function renderAll() {
 function init() {
   loadSavedOrders();
   loadSavedUsers();
+  loadSavedInventory();
+  loadSavedInventoryTransactions();
+  loadInventorySettings();
   loadSavedProducts();
   $("#loginForm").addEventListener("submit", login);
   $("#logoutButton").addEventListener("click", logout);
@@ -1464,6 +2186,13 @@ function init() {
   $("#itemForm").addEventListener("submit", saveProduct);
   $("#cancelItemEdit").addEventListener("click", resetItemForm);
   $("#itemCategory").addEventListener("change", syncItemIconWithCategory);
+  $("#addRecipeRow").addEventListener("click", addRecipeEditorRow);
+  $("#inventoryForm").addEventListener("submit", saveInventoryItem);
+  $("#cancelInventoryEdit").addEventListener("click", resetInventoryForm);
+  $("#allowNegativeStock").addEventListener("change", (event) => {
+    state.inventorySettings.allowNegativeStock = event.target.checked;
+    saveInventorySettings();
+  });
   $("#userForm").addEventListener("submit", addUser);
   $("#cancelUserEdit").addEventListener("click", resetUserForm);
   $("#newUserRole").addEventListener("change", renderRolePermissions);
@@ -1482,6 +2211,8 @@ function init() {
   setInterval(() => {
     $("#clock").textContent = new Date().toLocaleTimeString("ar-LY", { hour: "2-digit", minute: "2-digit" });
   }, 1000);
+  renderRecipeEditor([]);
+  resetInventoryForm();
   renderAll();
 }
 

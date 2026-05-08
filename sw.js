@@ -1,9 +1,9 @@
-const CACHE_NAME = "smokey-pos-v10";
+const CACHE_NAME = "smokey-pos-v51";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
-  "./styles.css?v=10",
-  "./app.js?v=10",
+  "./styles.css?v=51",
+  "./app.js?v=51",
   "./manifest.json",
   "./assets/smokey-logo.jpeg"
 ];
