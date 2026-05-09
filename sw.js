@@ -1,15 +1,17 @@
-const CACHE_NAME = "smokey-pos-v52-firebase-orders-test";
+const CACHE_NAME = "smokey-pos-v53-atomic-order-number";
 const FIREBASE_BRIDGE_SCRIPTS = `
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-  <script src="./firebase-orders-bridge.js?v=1"></script>
+  <script src="./firebase-orders-bridge.js?v=4"></script>
+  <script src="./firebase-order-number-hotfix.js?v=1"></script>
 `;
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
   "./styles.css?v=51",
   "./app.js?v=51",
-  "./firebase-orders-bridge.js?v=1",
+  "./firebase-orders-bridge.js?v=4",
+  "./firebase-order-number-hotfix.js?v=1",
   "./manifest.json",
   "./assets/smokey-logo.jpeg"
 ];
@@ -34,7 +36,7 @@ async function injectFirebaseBridge(response) {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
   const html = await response.text();
-  if (html.includes("firebase-orders-bridge.js")) {
+  if (html.includes("firebase-order-number-hotfix.js")) {
     return new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers });
   }
   const patched = html.replace("</body>", `${FIREBASE_BRIDGE_SCRIPTS}\n</body>`);
