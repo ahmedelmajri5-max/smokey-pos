@@ -1,7 +1,11 @@
 // Mobile POS UX: bottom-sheet cart and app-like mobile behavior.
+// Fixed: no global MutationObserver loop. Refresh is throttled and only reads cart state.
 (function () {
   const mq = window.matchMedia("(max-width: 780px)");
   let initialized = false;
+  let refreshQueued = false;
+  let lastFabHtml = "";
+  let lastPosActive = null;
 
   function getCartItemsCount() {
     return (Array.isArray(state.cart) ? state.cart : []).reduce((sum, item) => sum + (Number(item.qty ?? item.quantity ?? 1) || 1), 0);
@@ -42,19 +46,38 @@
     return document.querySelector("#pos.screen.active") !== null;
   }
 
-  function refreshMobileState() {
-    document.body.classList.toggle("pos-mobile-active", mq.matches && isPosActive());
+  function refreshMobileStateNow() {
+    refreshQueued = false;
+
+    const shouldBePosActive = Boolean(mq.matches && isPosActive());
+    if (lastPosActive !== shouldBePosActive) {
+      document.body.classList.toggle("pos-mobile-active", shouldBePosActive);
+      lastPosActive = shouldBePosActive;
+    }
+
     const fab = document.querySelector(".mobile-cart-fab");
     if (fab) {
       const count = getCartItemsCount();
       const total = getCartTotal();
-      fab.innerHTML = `<span>🛒 عرض السلة</span><small>${count} ${count === 1 ? "صنف" : "أصناف"}</small><strong>${money(total)}</strong>`;
+      const nextHtml = `<span>🛒 عرض السلة</span><small>${count} ${count === 1 ? "صنف" : "أصناف"}</small><strong>${money(total)}</strong>`;
+      if (nextHtml !== lastFabHtml) {
+        fab.innerHTML = nextHtml;
+        lastFabHtml = nextHtml;
+      }
     }
+  }
+
+  function refreshMobileState() {
+    if (refreshQueued) return;
+    refreshQueued = true;
+    requestAnimationFrame(refreshMobileStateNow);
   }
 
   function openCart() {
     if (!mq.matches) return;
-    document.body.classList.add("mobile-cart-open");
+    if (!document.body.classList.contains("mobile-cart-open")) {
+      document.body.classList.add("mobile-cart-open");
+    }
     const collapse = document.querySelector("#cartCollapseToggle");
     if (collapse) {
       collapse.textContent = "×";
@@ -63,7 +86,9 @@
   }
 
   function closeCart() {
-    document.body.classList.remove("mobile-cart-open");
+    if (document.body.classList.contains("mobile-cart-open")) {
+      document.body.classList.remove("mobile-cart-open");
+    }
     const collapse = document.querySelector("#cartCollapseToggle");
     if (collapse) {
       collapse.textContent = "−";
@@ -77,40 +102,50 @@
     ensureMobileElements();
 
     document.addEventListener("click", (event) => {
-      const fab = event.target.closest(".mobile-cart-fab");
+      const target = event.target;
+      if (!target || !target.closest) return;
+
+      const fab = target.closest(".mobile-cart-fab");
       if (fab) {
         event.preventDefault();
         openCart();
+        refreshMobileState();
         return;
       }
 
-      const backdrop = event.target.closest(".mobile-cart-backdrop");
+      const backdrop = target.closest(".mobile-cart-backdrop");
       if (backdrop) {
         event.preventDefault();
         closeCart();
+        refreshMobileState();
         return;
       }
 
-      const collapse = event.target.closest("#cartCollapseToggle");
+      const collapse = target.closest("#cartCollapseToggle");
       if (collapse && mq.matches) {
         event.preventDefault();
         document.body.classList.contains("mobile-cart-open") ? closeCart() : openCart();
+        refreshMobileState();
+        return;
       }
 
-      const product = event.target.closest(".product-card");
-      if (product && mq.matches) {
-        setTimeout(refreshMobileState, 80);
+      if (target.closest(".product-card") || target.closest(".qty-control") || target.closest("#clearCart") || target.closest(".pay-row button")) {
+        setTimeout(refreshMobileState, 120);
       }
 
-      const nav = event.target.closest(".nav-item");
-      if (nav) {
+      if (target.closest(".nav-item")) {
         closeCart();
         setTimeout(refreshMobileState, 80);
       }
     }, true);
 
-    const observer = new MutationObserver(() => refreshMobileState());
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["class"] });
+    // Watch only screen class changes, not the whole body subtree. This avoids freezing loops.
+    document.querySelectorAll(".screen").forEach((screen) => {
+      new MutationObserver(refreshMobileState).observe(screen, { attributes: true, attributeFilter: ["class"] });
+    });
+
+    // Lightweight timer just for cart count changes caused by app.js rendering.
+    setInterval(refreshMobileState, 1000);
 
     window.addEventListener("resize", refreshMobileState);
     window.addEventListener("orientationchange", () => setTimeout(refreshMobileState, 250));
@@ -120,6 +155,6 @@
   window.addEventListener("load", () => {
     bind();
     refreshMobileState();
-    console.log("Smokey POS mobile layout hotfix is active.");
+    console.log("Smokey POS mobile layout hotfix is active without freeze loop.");
   });
 })();
