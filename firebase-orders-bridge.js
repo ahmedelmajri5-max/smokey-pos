@@ -1,5 +1,5 @@
 // Firebase realtime bridge for experimental branch only.
-// This keeps app.js intact and syncs shared POS data with Cloud Firestore.
+// Keeps app.js intact and syncs shared POS data with Cloud Firestore.
 (function () {
   const firebaseConfig = {
     apiKey: String.fromCharCode(65,73,122,97,83,121,65,56,68,118,104,45,108,52,85,51,115,56,76,100,75,108,110,104,87,121,72,57,99,57,49,79,122,105,71,78,95,70,69),
@@ -21,16 +21,15 @@
   const productsRef = db.collection("products");
   const inventoryRef = db.collection("inventory");
   const inventoryTransactionsRef = db.collection("inventoryTransactions");
-  const appSettingsRef = db.collection("appSettings");
-  const inventorySettingsRef = appSettingsRef.doc("inventory");
+  const inventorySettingsRef = db.collection("appSettings").doc("inventory");
   const counterRef = db.collection("counters").doc("orders");
 
   let applyingRemoteSnapshot = false;
   let syncStarted = false;
   let lastLocalOrdersSnapshot = [];
 
-  const originalSaveOrders = saveOrders;
-  const originalConfirmOrder = confirmOrder;
+  const originalSaveOrders = typeof saveOrders === "function" ? saveOrders : null;
+  const originalConfirmOrder = typeof confirmOrder === "function" ? confirmOrder : null;
   const originalSaveProducts = typeof saveProducts === "function" ? saveProducts : null;
   const originalSaveInventory = typeof saveInventory === "function" ? saveInventory : null;
   const originalSaveInventoryTransactions = typeof saveInventoryTransactions === "function" ? saveInventoryTransactions : null;
@@ -48,22 +47,27 @@
     return 0;
   }
 
-  function cloneOrders(orders) {
+  function cloneArray(value) {
     try {
-      return JSON.parse(JSON.stringify(Array.isArray(orders) ? orders : []));
+      return JSON.parse(JSON.stringify(Array.isArray(value) ? value : []));
     } catch {
-      return Array.isArray(orders) ? orders.map((order) => ({ ...order })) : [];
+      return Array.isArray(value) ? value.map((item) => ({ ...item })) : [];
     }
   }
 
   function rememberLocalOrders() {
     if (!applyingRemoteSnapshot && Array.isArray(state.orders)) {
-      lastLocalOrdersSnapshot = cloneOrders(state.orders);
+      lastLocalOrdersSnapshot = cloneArray(state.orders);
     }
   }
 
   function safeRenderAll() {
     if (typeof renderAll === "function") renderAll();
+  }
+
+  function syncCurrentOrderLabel() {
+    const currentOrder = document.querySelector("#currentOrder");
+    if (currentOrder) currentOrder.textContent = `#${state.nextOrder}`;
   }
 
   function formatTimeValue(value) {
@@ -84,7 +88,7 @@
       ...order,
       id: Number(order.id),
       total: Number(order.total) || 0,
-      createdAt: Number(order.createdAt) || Date.now(),
+      createdAt: Number(order.createdAt) || Number(order.createdAtMs) || Date.now(),
       createdBy: order.createdBy || order.cashier || "المدير",
       updatedAt: Number(order.modifiedAtMs || order.updatedAt || 0) || null,
       updatedBy: order.modifiedBy || order.updatedBy || null,
@@ -153,7 +157,8 @@
   }
 
   function normalizeInventoryTxForFirestore(tx) {
-    return { ...tx, id: String(tx.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`), syncedAt: Date.now() };
+    const id = String(tx.id || `${tx.orderId || "tx"}-${tx.createdAt || tx.time || Date.now()}-${Math.random().toString(16).slice(2)}`);
+    return { ...tx, id, syncedAt: Date.now() };
   }
 
   function normalizeInventoryTxFromFirestore(doc) {
@@ -161,30 +166,24 @@
     return { ...data, id: String(data.id || doc.id) };
   }
 
-  async function reserveOrderNumber() {
-    return db.runTransaction(async (transaction) => {
-      const snap = await transaction.get(counterRef);
-      const currentNext = snap.exists ? Number(snap.data().next || 1) : Number(state.nextOrder || 1);
-      const safeNext = Math.max(currentNext, Number(state.nextOrder || 1));
-      transaction.set(counterRef, { next: safeNext + 1, updatedAt: Date.now() }, { merge: true });
-      return safeNext;
-    });
-  }
-
   async function pushCollection(items, ref, normalizer, idGetter) {
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) return;
     const batch = db.batch();
-    items.forEach((item) => {
+    let hasWrites = false;
+    list.forEach((item) => {
       if (!item) return;
       const id = String(idGetter(item));
       if (!id || id === "undefined" || id === "null") return;
       batch.set(ref.doc(id), normalizer(item), { merge: true });
+      hasWrites = true;
     });
-    await batch.commit();
+    if (hasWrites) await batch.commit();
   }
 
   async function initializeCollection({ localItems, ref, normalizerFromFirestore, applyRemote, pushLocal }) {
     const snap = await ref.limit(1).get();
-    if (snap.empty && localItems.length) {
+    if (snap.empty && Array.isArray(localItems) && localItems.length) {
       await pushLocal();
       return;
     }
@@ -195,42 +194,48 @@
   async function pushOrdersToFirestore() {
     if (applyingRemoteSnapshot) return;
     rememberLocalOrders();
+    const list = Array.isArray(state.orders) ? state.orders : [];
+    if (!list.length) return;
+
     const batch = db.batch();
     let maxId = 0;
-    state.orders.forEach((order) => {
+    let hasWrites = false;
+    list.forEach((order) => {
       if (!order || !order.id) return;
       maxId = Math.max(maxId, Number(order.id) || 0);
       batch.set(ordersRef.doc(String(order.id)), normalizeOrderForFirestore(order), { merge: true });
+      hasWrites = true;
     });
-    if (maxId) batch.set(counterRef, { next: Math.max(Number(state.nextOrder || 1), maxId + 1), updatedAt: Date.now() }, { merge: true });
-    await batch.commit();
+    if (maxId) {
+      batch.set(counterRef, { next: Math.max(Number(state.nextOrder || 1), maxId + 1), updatedAt: Date.now() }, { merge: true });
+      hasWrites = true;
+    }
+    if (hasWrites) await batch.commit();
   }
 
   async function pushProductsToFirestore() {
-    if (applyingRemoteSnapshot) return;
-    await pushCollection(state.products || [], productsRef, normalizeProductForFirestore, (product) => product.id);
+    if (!applyingRemoteSnapshot) await pushCollection(state.products || [], productsRef, normalizeProductForFirestore, (product) => product.id);
   }
 
   async function pushInventoryToFirestore() {
-    if (applyingRemoteSnapshot) return;
-    await pushCollection(state.inventory || [], inventoryRef, normalizeInventoryForFirestore, (item) => item.id);
+    if (!applyingRemoteSnapshot) await pushCollection(state.inventory || [], inventoryRef, normalizeInventoryForFirestore, (item) => item.id);
   }
 
   async function pushInventoryTransactionsToFirestore() {
-    if (applyingRemoteSnapshot) return;
-    await pushCollection(state.inventoryTransactions || [], inventoryTransactionsRef, normalizeInventoryTxForFirestore, (tx) => tx.id || `${tx.orderId || "tx"}-${tx.createdAt || tx.time || Date.now()}`);
+    if (!applyingRemoteSnapshot) await pushCollection(state.inventoryTransactions || [], inventoryTransactionsRef, normalizeInventoryTxForFirestore, (tx) => tx.id || `${tx.orderId || "tx"}-${tx.createdAt || tx.time || Date.now()}`);
   }
 
   async function pushInventorySettingsToFirestore() {
-    if (applyingRemoteSnapshot) return;
-    await inventorySettingsRef.set({ ...(state.inventorySettings || {}), syncedAt: Date.now() }, { merge: true });
+    if (!applyingRemoteSnapshot) await inventorySettingsRef.set({ ...(state.inventorySettings || {}), syncedAt: Date.now() }, { merge: true });
   }
 
-  saveOrders = function saveOrdersFirebaseBridge() {
-    rememberLocalOrders();
-    originalSaveOrders();
-    if (!applyingRemoteSnapshot) pushOrdersToFirestore().catch((error) => console.warn("Firebase orders sync failed:", error));
-  };
+  if (originalSaveOrders) {
+    saveOrders = function saveOrdersFirebaseBridge() {
+      rememberLocalOrders();
+      originalSaveOrders();
+      if (!applyingRemoteSnapshot) pushOrdersToFirestore().catch((error) => console.warn("Firebase orders sync failed:", error));
+    };
+  }
 
   if (originalSaveProducts) {
     saveProducts = function saveProductsFirebaseBridge() {
@@ -260,21 +265,27 @@
     };
   }
 
-  confirmOrder = async function confirmOrderFirebaseBridge() {
-    if (!state.editingOrderId) {
-      try {
-        const reservedId = await reserveOrderNumber();
-        state.nextOrder = reservedId;
-        const currentOrder = document.querySelector("#currentOrder");
-        if (currentOrder) currentOrder.textContent = `#${state.nextOrder}`;
-      } catch (error) {
-        console.warn("Could not reserve Firebase order number. Falling back to local counter.", error);
-      }
-    }
-    originalConfirmOrder();
-    rememberLocalOrders();
-    pushOrdersToFirestore().catch((error) => console.warn("Post-confirm Firebase orders push failed:", error));
-  };
+  if (originalConfirmOrder) {
+    confirmOrder = function confirmOrderFirebaseBridge() {
+      const wasEditing = Boolean(state.editingOrderId);
+      const beforeIds = new Set((state.orders || []).map((order) => Number(order.id)));
+
+      // مهم: لا نحجز رقم من Firebase قبل التأكيد.
+      // الطلب الجديد يأخذ الرقم من منطق app.js المحلي، ثم نحفظه مباشرة في Firestore.
+      originalConfirmOrder();
+
+      const currentIds = (state.orders || []).map((order) => Number(order.id));
+      const maxId = currentIds.reduce((max, id) => Math.max(max, id || 0), 0);
+      state.nextOrder = Math.max(Number(state.nextOrder || 1), maxId + 1);
+      syncCurrentOrderLabel();
+
+      rememberLocalOrders();
+      pushOrdersToFirestore().catch((error) => console.warn(wasEditing ? "Post-edit Firebase orders push failed:" : "Post-confirm Firebase orders push failed:", error));
+
+      const createdId = currentIds.find((id) => id && !beforeIds.has(id));
+      if (createdId) console.log(`Order #${createdId} saved locally and queued for Firebase sync.`);
+    };
+  }
 
   renderOrdersTable = function renderOrdersTableFirebaseBridge() {
     const query = state.orderSearch.trim().replace("#", "");
@@ -366,9 +377,7 @@
 
   async function startInventoryTransactionsRealtimeSync() {
     const snap = await inventoryTransactionsRef.limit(1).get();
-    if (snap.empty && Array.isArray(state.inventoryTransactions) && state.inventoryTransactions.length) {
-      await pushInventoryTransactionsToFirestore();
-    }
+    if (snap.empty && Array.isArray(state.inventoryTransactions) && state.inventoryTransactions.length) await pushInventoryTransactionsToFirestore();
 
     inventoryTransactionsRef.onSnapshot((snapshot) => {
       applyingRemoteSnapshot = true;
@@ -425,7 +434,9 @@
       state.orders = mergeRemoteOrdersWithPendingLocal(remoteOrders);
       const maxId = state.orders.reduce((max, order) => Math.max(max, Number(order.id) || 0), 0);
       state.nextOrder = Math.max(Number(state.nextOrder || 1), maxId + 1);
-      originalSaveOrders();
+      if (maxId) counterRef.set({ next: state.nextOrder, updatedAt: Date.now() }, { merge: true }).catch(() => undefined);
+      if (originalSaveOrders) originalSaveOrders();
+      syncCurrentOrderLabel();
       safeRenderAll();
       applyingRemoteSnapshot = false;
     }, (error) => {
@@ -444,6 +455,6 @@
       startInventoryTransactionsRealtimeSync(),
       startInventorySettingsRealtimeSync()
     ]);
-    console.log("Smokey POS Firebase realtime bridge is active for orders, products, and inventory.");
+    console.log("Smokey POS Firebase realtime bridge is active. Order IDs are not pre-reserved.");
   });
 })();
