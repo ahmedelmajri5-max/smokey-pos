@@ -1,9 +1,9 @@
-const CACHE_NAME = "smokey-pos-v53-atomic-order-number";
+const CACHE_NAME = "smokey-pos-v54-atomic-confirm-intercept";
 const FIREBASE_BRIDGE_SCRIPTS = `
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
   <script src="./firebase-orders-bridge.js?v=4"></script>
-  <script src="./firebase-order-number-hotfix.js?v=1"></script>
+  <script src="./firebase-order-number-hotfix.js?v=2"></script>
 `;
 const FILES_TO_CACHE = [
   "./",
@@ -11,7 +11,7 @@ const FILES_TO_CACHE = [
   "./styles.css?v=51",
   "./app.js?v=51",
   "./firebase-orders-bridge.js?v=4",
-  "./firebase-order-number-hotfix.js?v=1",
+  "./firebase-order-number-hotfix.js?v=2",
   "./manifest.json",
   "./assets/smokey-logo.jpeg"
 ];
