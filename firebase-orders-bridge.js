@@ -27,6 +27,7 @@
 
   let applyingRemoteSnapshot = false;
   let syncStarted = false;
+  let lastLocalOrdersSnapshot = [];
 
   const originalSaveOrders = saveOrders;
   const originalConfirmOrder = confirmOrder;
@@ -45,6 +46,20 @@
     if (value && typeof value.toMillis === "function") return value.toMillis();
     if (value && typeof value.seconds === "number") return value.seconds * 1000;
     return 0;
+  }
+
+  function cloneOrders(orders) {
+    try {
+      return JSON.parse(JSON.stringify(Array.isArray(orders) ? orders : []));
+    } catch {
+      return Array.isArray(orders) ? orders.map((order) => ({ ...order })) : [];
+    }
+  }
+
+  function rememberLocalOrders() {
+    if (!applyingRemoteSnapshot && Array.isArray(state.orders)) {
+      lastLocalOrdersSnapshot = cloneOrders(state.orders);
+    }
   }
 
   function safeRenderAll() {
@@ -167,7 +182,7 @@
     await batch.commit();
   }
 
-  async function initializeCollection({ localItems, ref, normalizerToFirestore, normalizerFromFirestore, idGetter, applyRemote, pushLocal }) {
+  async function initializeCollection({ localItems, ref, normalizerFromFirestore, applyRemote, pushLocal }) {
     const snap = await ref.limit(1).get();
     if (snap.empty && localItems.length) {
       await pushLocal();
@@ -179,6 +194,7 @@
 
   async function pushOrdersToFirestore() {
     if (applyingRemoteSnapshot) return;
+    rememberLocalOrders();
     const batch = db.batch();
     let maxId = 0;
     state.orders.forEach((order) => {
@@ -211,6 +227,7 @@
   }
 
   saveOrders = function saveOrdersFirebaseBridge() {
+    rememberLocalOrders();
     originalSaveOrders();
     if (!applyingRemoteSnapshot) pushOrdersToFirestore().catch((error) => console.warn("Firebase orders sync failed:", error));
   };
@@ -255,6 +272,8 @@
       }
     }
     originalConfirmOrder();
+    rememberLocalOrders();
+    pushOrdersToFirestore().catch((error) => console.warn("Post-confirm Firebase orders push failed:", error));
   };
 
   renderOrdersTable = function renderOrdersTableFirebaseBridge() {
@@ -299,9 +318,7 @@
     await initializeCollection({
       localItems: state.products || [],
       ref: productsRef,
-      normalizerToFirestore: normalizeProductForFirestore,
       normalizerFromFirestore: normalizeProductFromFirestore,
-      idGetter: (product) => product.id,
       pushLocal: pushProductsToFirestore,
       applyRemote: (items) => {
         state.products = items.sort((a, b) => Number(a.id) - Number(b.id));
@@ -326,9 +343,7 @@
     await initializeCollection({
       localItems: state.inventory || [],
       ref: inventoryRef,
-      normalizerToFirestore: normalizeInventoryForFirestore,
       normalizerFromFirestore: normalizeInventoryFromFirestore,
-      idGetter: (item) => item.id,
       pushLocal: pushInventoryToFirestore,
       applyRemote: (items) => {
         state.inventory = items;
@@ -385,10 +400,29 @@
     });
   }
 
+  function mergeRemoteOrdersWithPendingLocal(remoteOrders) {
+    const remoteIds = new Set(remoteOrders.map((order) => Number(order.id)));
+    const localSource = Array.isArray(state.orders) && state.orders.length ? state.orders : lastLocalOrdersSnapshot;
+    const now = Date.now();
+    const localOnly = (localSource || []).filter((order) => {
+      const id = Number(order && order.id);
+      if (!id || remoteIds.has(id)) return false;
+      const createdAt = Number(order.createdAt) || Number(order.createdAtMs) || now;
+      return now - createdAt < 5 * 60 * 1000;
+    });
+    return [...remoteOrders, ...localOnly].sort((a, b) => (Number(b.createdAt) || 0) - (Number(a.createdAt) || 0));
+  }
+
   function startOrdersRealtimeSync() {
+    if (Array.isArray(state.orders) && state.orders.length) {
+      rememberLocalOrders();
+      pushOrdersToFirestore().catch((error) => console.warn("Initial Firebase orders push failed:", error));
+    }
+
     ordersRef.orderBy("createdAt", "desc").onSnapshot((snapshot) => {
       applyingRemoteSnapshot = true;
-      state.orders = snapshot.docs.map(normalizeOrderFromFirestore);
+      const remoteOrders = snapshot.docs.map(normalizeOrderFromFirestore);
+      state.orders = mergeRemoteOrdersWithPendingLocal(remoteOrders);
       const maxId = state.orders.reduce((max, order) => Math.max(max, Number(order.id) || 0), 0);
       state.nextOrder = Math.max(Number(state.nextOrder || 1), maxId + 1);
       originalSaveOrders();
@@ -398,8 +432,6 @@
       applyingRemoteSnapshot = false;
       console.warn("Firebase orders realtime listener failed. Using localStorage fallback.", error);
     });
-
-    if (state.orders.length) pushOrdersToFirestore().catch((error) => console.warn("Initial Firebase orders push failed:", error));
   }
 
   window.addEventListener("load", async () => {
