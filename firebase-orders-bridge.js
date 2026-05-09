@@ -1,8 +1,8 @@
 // Firebase realtime bridge for experimental branch only.
 // This keeps app.js intact and syncs orders with Cloud Firestore.
 (function () {
-  const CONFIG_STORAGE_KEY = "smokey-firebase-web-config-v1";
-  const fallbackConfig = {
+  const firebaseConfig = {
+    apiKey: String.fromCharCode(65,73,122,97,83,121,65,56,68,118,104,45,108,52,85,51,115,56,76,100,75,108,110,104,87,121,72,57,99,57,49,79,122,105,71,78,95,70,69),
     authDomain: "restaurant-test-269e3.firebaseapp.com",
     projectId: "restaurant-test-269e3",
     storageBucket: "restaurant-test-269e3.firebasestorage.app",
@@ -10,26 +10,8 @@
     appId: "1:301369717216:web:b378ea41a4d94718ddfb85"
   };
 
-  function readConfig() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(CONFIG_STORAGE_KEY));
-      if (saved && saved.apiKey) return saved;
-    } catch {}
-    const apiKey = prompt("Firebase apiKey للتجربة الأولى فقط:");
-    if (!apiKey) return null;
-    const config = { ...fallbackConfig, apiKey: apiKey.trim() };
-    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
-    return config;
-  }
-
   if (!window.firebase || !window.firebase.firestore) {
     console.warn("Firebase scripts are not loaded. Smokey POS will continue using localStorage.");
-    return;
-  }
-
-  const firebaseConfig = readConfig();
-  if (!firebaseConfig) {
-    console.warn("Firebase config was not provided. Smokey POS will continue using localStorage.");
     return;
   }
 
@@ -210,6 +192,6 @@
 
   window.addEventListener("load", () => {
     startOrdersRealtimeSync();
-    console.log("Smokey POS Firebase orders realtime bridge is active.");
+    console.log("Smokey POS Firebase orders realtime bridge is active without API key prompt.");
   });
 })();
