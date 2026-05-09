@@ -1,5 +1,5 @@
 // Firebase realtime bridge for experimental branch only.
-// This keeps app.js intact and syncs orders with Cloud Firestore.
+// This keeps app.js intact and syncs shared POS data with Cloud Firestore.
 (function () {
   const firebaseConfig = {
     apiKey: String.fromCharCode(65,73,122,97,83,121,65,56,68,118,104,45,108,52,85,51,115,56,76,100,75,108,110,104,87,121,72,57,99,57,49,79,122,105,71,78,95,70,69),
@@ -18,12 +18,22 @@
   const app = window.firebase.apps.length ? window.firebase.app() : window.firebase.initializeApp(firebaseConfig);
   const db = app.firestore();
   const ordersRef = db.collection("orders");
+  const productsRef = db.collection("products");
+  const inventoryRef = db.collection("inventory");
+  const inventoryTransactionsRef = db.collection("inventoryTransactions");
+  const appSettingsRef = db.collection("appSettings");
+  const inventorySettingsRef = appSettingsRef.doc("inventory");
   const counterRef = db.collection("counters").doc("orders");
 
   let applyingRemoteSnapshot = false;
   let syncStarted = false;
+
   const originalSaveOrders = saveOrders;
   const originalConfirmOrder = confirmOrder;
+  const originalSaveProducts = typeof saveProducts === "function" ? saveProducts : null;
+  const originalSaveInventory = typeof saveInventory === "function" ? saveInventory : null;
+  const originalSaveInventoryTransactions = typeof saveInventoryTransactions === "function" ? saveInventoryTransactions : null;
+  const originalSaveInventorySettings = typeof saveInventorySettings === "function" ? saveInventorySettings : null;
 
   function toMillis(value) {
     if (!value) return 0;
@@ -35,6 +45,10 @@
     if (value && typeof value.toMillis === "function") return value.toMillis();
     if (value && typeof value.seconds === "number") return value.seconds * 1000;
     return 0;
+  }
+
+  function safeRenderAll() {
+    if (typeof renderAll === "function") renderAll();
   }
 
   function formatTimeValue(value) {
@@ -78,6 +92,60 @@
     };
   }
 
+  function normalizeProductForFirestore(product) {
+    return {
+      ...product,
+      id: Number(product.id),
+      price: Number(product.price) || 0,
+      available: product.available !== false,
+      recipe: Array.isArray(product.recipe) ? product.recipe : [],
+      syncedAt: Date.now()
+    };
+  }
+
+  function normalizeProductFromFirestore(doc) {
+    const data = doc.data() || {};
+    return {
+      ...data,
+      id: Number(data.id || doc.id),
+      price: Number(data.price) || 0,
+      available: data.available !== false,
+      ingredients: Array.isArray(data.ingredients) ? data.ingredients : [],
+      recipe: Array.isArray(data.recipe) ? data.recipe : []
+    };
+  }
+
+  function normalizeInventoryForFirestore(item) {
+    return {
+      ...item,
+      id: String(item.id),
+      current_quantity: Number(item.current_quantity) || 0,
+      minimum_quantity: Number(item.minimum_quantity) || 0,
+      is_active: item.is_active !== false,
+      syncedAt: Date.now()
+    };
+  }
+
+  function normalizeInventoryFromFirestore(doc) {
+    const data = doc.data() || {};
+    return {
+      ...data,
+      id: String(data.id || doc.id),
+      current_quantity: Number(data.current_quantity) || 0,
+      minimum_quantity: Number(data.minimum_quantity) || 0,
+      is_active: data.is_active !== false
+    };
+  }
+
+  function normalizeInventoryTxForFirestore(tx) {
+    return { ...tx, id: String(tx.id || `${Date.now()}-${Math.random().toString(16).slice(2)}`), syncedAt: Date.now() };
+  }
+
+  function normalizeInventoryTxFromFirestore(doc) {
+    const data = doc.data() || {};
+    return { ...data, id: String(data.id || doc.id) };
+  }
+
   async function reserveOrderNumber() {
     return db.runTransaction(async (transaction) => {
       const snap = await transaction.get(counterRef);
@@ -86,6 +154,27 @@
       transaction.set(counterRef, { next: safeNext + 1, updatedAt: Date.now() }, { merge: true });
       return safeNext;
     });
+  }
+
+  async function pushCollection(items, ref, normalizer, idGetter) {
+    const batch = db.batch();
+    items.forEach((item) => {
+      if (!item) return;
+      const id = String(idGetter(item));
+      if (!id || id === "undefined" || id === "null") return;
+      batch.set(ref.doc(id), normalizer(item), { merge: true });
+    });
+    await batch.commit();
+  }
+
+  async function initializeCollection({ localItems, ref, normalizerToFirestore, normalizerFromFirestore, idGetter, applyRemote, pushLocal }) {
+    const snap = await ref.limit(1).get();
+    if (snap.empty && localItems.length) {
+      await pushLocal();
+      return;
+    }
+    const all = await ref.get();
+    applyRemote(all.docs.map(normalizerFromFirestore));
   }
 
   async function pushOrdersToFirestore() {
@@ -101,12 +190,58 @@
     await batch.commit();
   }
 
+  async function pushProductsToFirestore() {
+    if (applyingRemoteSnapshot) return;
+    await pushCollection(state.products || [], productsRef, normalizeProductForFirestore, (product) => product.id);
+  }
+
+  async function pushInventoryToFirestore() {
+    if (applyingRemoteSnapshot) return;
+    await pushCollection(state.inventory || [], inventoryRef, normalizeInventoryForFirestore, (item) => item.id);
+  }
+
+  async function pushInventoryTransactionsToFirestore() {
+    if (applyingRemoteSnapshot) return;
+    await pushCollection(state.inventoryTransactions || [], inventoryTransactionsRef, normalizeInventoryTxForFirestore, (tx) => tx.id || `${tx.orderId || "tx"}-${tx.createdAt || tx.time || Date.now()}`);
+  }
+
+  async function pushInventorySettingsToFirestore() {
+    if (applyingRemoteSnapshot) return;
+    await inventorySettingsRef.set({ ...(state.inventorySettings || {}), syncedAt: Date.now() }, { merge: true });
+  }
+
   saveOrders = function saveOrdersFirebaseBridge() {
     originalSaveOrders();
-    if (!applyingRemoteSnapshot) {
-      pushOrdersToFirestore().catch((error) => console.warn("Firebase orders sync failed:", error));
-    }
+    if (!applyingRemoteSnapshot) pushOrdersToFirestore().catch((error) => console.warn("Firebase orders sync failed:", error));
   };
+
+  if (originalSaveProducts) {
+    saveProducts = function saveProductsFirebaseBridge() {
+      originalSaveProducts();
+      if (!applyingRemoteSnapshot) pushProductsToFirestore().catch((error) => console.warn("Firebase products sync failed:", error));
+    };
+  }
+
+  if (originalSaveInventory) {
+    saveInventory = function saveInventoryFirebaseBridge() {
+      originalSaveInventory();
+      if (!applyingRemoteSnapshot) pushInventoryToFirestore().catch((error) => console.warn("Firebase inventory sync failed:", error));
+    };
+  }
+
+  if (originalSaveInventoryTransactions) {
+    saveInventoryTransactions = function saveInventoryTransactionsFirebaseBridge() {
+      originalSaveInventoryTransactions();
+      if (!applyingRemoteSnapshot) pushInventoryTransactionsToFirestore().catch((error) => console.warn("Firebase inventory transactions sync failed:", error));
+    };
+  }
+
+  if (originalSaveInventorySettings) {
+    saveInventorySettings = function saveInventorySettingsFirebaseBridge() {
+      originalSaveInventorySettings();
+      if (!applyingRemoteSnapshot) pushInventorySettingsToFirestore().catch((error) => console.warn("Firebase inventory settings sync failed:", error));
+    };
+  }
 
   confirmOrder = async function confirmOrderFirebaseBridge() {
     if (!state.editingOrderId) {
@@ -153,45 +288,130 @@
       </tr>
     `).join("");
 
-    if (!visibleOrders.length) {
-      table.innerHTML = `<tr><td colspan="7">لا توجد طلبات مطابقة.</td></tr>`;
-    }
+    if (!visibleOrders.length) table.innerHTML = `<tr><td colspan="7">لا توجد طلبات مطابقة.</td></tr>`;
 
-    document.querySelectorAll("[data-print-order]").forEach((button) => {
-      button.addEventListener("click", () => printOrderById(button.dataset.printOrder, "فاتورة طلب"));
-    });
-    document.querySelectorAll("[data-edit-order]").forEach((button) => {
-      button.addEventListener("click", () => editOrder(button.dataset.editOrder));
-    });
-    document.querySelectorAll("[data-delete-order]").forEach((button) => {
-      button.addEventListener("click", () => deleteOrder(button.dataset.deleteOrder));
-    });
+    document.querySelectorAll("[data-print-order]").forEach((button) => button.addEventListener("click", () => printOrderById(button.dataset.printOrder, "فاتورة طلب")));
+    document.querySelectorAll("[data-edit-order]").forEach((button) => button.addEventListener("click", () => editOrder(button.dataset.editOrder)));
+    document.querySelectorAll("[data-delete-order]").forEach((button) => button.addEventListener("click", () => deleteOrder(button.dataset.deleteOrder)));
   };
 
-  function startOrdersRealtimeSync() {
-    if (syncStarted) return;
-    syncStarted = true;
+  async function startProductsRealtimeSync() {
+    await initializeCollection({
+      localItems: state.products || [],
+      ref: productsRef,
+      normalizerToFirestore: normalizeProductForFirestore,
+      normalizerFromFirestore: normalizeProductFromFirestore,
+      idGetter: (product) => product.id,
+      pushLocal: pushProductsToFirestore,
+      applyRemote: (items) => {
+        state.products = items.sort((a, b) => Number(a.id) - Number(b.id));
+        if (originalSaveProducts) originalSaveProducts();
+        safeRenderAll();
+      }
+    });
 
+    productsRef.onSnapshot((snapshot) => {
+      applyingRemoteSnapshot = true;
+      state.products = snapshot.docs.map(normalizeProductFromFirestore).sort((a, b) => Number(a.id) - Number(b.id));
+      if (originalSaveProducts) originalSaveProducts();
+      safeRenderAll();
+      applyingRemoteSnapshot = false;
+    }, (error) => {
+      applyingRemoteSnapshot = false;
+      console.warn("Firebase products realtime listener failed:", error);
+    });
+  }
+
+  async function startInventoryRealtimeSync() {
+    await initializeCollection({
+      localItems: state.inventory || [],
+      ref: inventoryRef,
+      normalizerToFirestore: normalizeInventoryForFirestore,
+      normalizerFromFirestore: normalizeInventoryFromFirestore,
+      idGetter: (item) => item.id,
+      pushLocal: pushInventoryToFirestore,
+      applyRemote: (items) => {
+        state.inventory = items;
+        if (originalSaveInventory) originalSaveInventory();
+        safeRenderAll();
+      }
+    });
+
+    inventoryRef.onSnapshot((snapshot) => {
+      applyingRemoteSnapshot = true;
+      state.inventory = snapshot.docs.map(normalizeInventoryFromFirestore);
+      if (originalSaveInventory) originalSaveInventory();
+      safeRenderAll();
+      applyingRemoteSnapshot = false;
+    }, (error) => {
+      applyingRemoteSnapshot = false;
+      console.warn("Firebase inventory realtime listener failed:", error);
+    });
+  }
+
+  async function startInventoryTransactionsRealtimeSync() {
+    const snap = await inventoryTransactionsRef.limit(1).get();
+    if (snap.empty && Array.isArray(state.inventoryTransactions) && state.inventoryTransactions.length) {
+      await pushInventoryTransactionsToFirestore();
+    }
+
+    inventoryTransactionsRef.onSnapshot((snapshot) => {
+      applyingRemoteSnapshot = true;
+      state.inventoryTransactions = snapshot.docs.map(normalizeInventoryTxFromFirestore);
+      if (originalSaveInventoryTransactions) originalSaveInventoryTransactions();
+      safeRenderAll();
+      applyingRemoteSnapshot = false;
+    }, (error) => {
+      applyingRemoteSnapshot = false;
+      console.warn("Firebase inventory transactions realtime listener failed:", error);
+    });
+  }
+
+  async function startInventorySettingsRealtimeSync() {
+    const snap = await inventorySettingsRef.get();
+    if (!snap.exists && state.inventorySettings) await pushInventorySettingsToFirestore();
+
+    inventorySettingsRef.onSnapshot((doc) => {
+      if (!doc.exists) return;
+      applyingRemoteSnapshot = true;
+      state.inventorySettings = { ...(state.inventorySettings || {}), ...(doc.data() || {}) };
+      delete state.inventorySettings.syncedAt;
+      if (originalSaveInventorySettings) originalSaveInventorySettings();
+      safeRenderAll();
+      applyingRemoteSnapshot = false;
+    }, (error) => {
+      applyingRemoteSnapshot = false;
+      console.warn("Firebase inventory settings realtime listener failed:", error);
+    });
+  }
+
+  function startOrdersRealtimeSync() {
     ordersRef.orderBy("createdAt", "desc").onSnapshot((snapshot) => {
       applyingRemoteSnapshot = true;
       state.orders = snapshot.docs.map(normalizeOrderFromFirestore);
       const maxId = state.orders.reduce((max, order) => Math.max(max, Number(order.id) || 0), 0);
       state.nextOrder = Math.max(Number(state.nextOrder || 1), maxId + 1);
       originalSaveOrders();
-      renderAll();
+      safeRenderAll();
       applyingRemoteSnapshot = false;
     }, (error) => {
       applyingRemoteSnapshot = false;
-      console.warn("Firebase realtime listener failed. Using localStorage fallback.", error);
+      console.warn("Firebase orders realtime listener failed. Using localStorage fallback.", error);
     });
 
-    if (state.orders.length) {
-      pushOrdersToFirestore().catch((error) => console.warn("Initial Firebase push failed:", error));
-    }
+    if (state.orders.length) pushOrdersToFirestore().catch((error) => console.warn("Initial Firebase orders push failed:", error));
   }
 
-  window.addEventListener("load", () => {
+  window.addEventListener("load", async () => {
+    if (syncStarted) return;
+    syncStarted = true;
     startOrdersRealtimeSync();
-    console.log("Smokey POS Firebase orders realtime bridge is active without API key prompt.");
+    await Promise.allSettled([
+      startProductsRealtimeSync(),
+      startInventoryRealtimeSync(),
+      startInventoryTransactionsRealtimeSync(),
+      startInventorySettingsRealtimeSync()
+    ]);
+    console.log("Smokey POS Firebase realtime bridge is active for orders, products, and inventory.");
   });
 })();
