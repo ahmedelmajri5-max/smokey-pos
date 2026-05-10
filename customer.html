@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>طلب زبون - Smokey</title>
+  <meta name="theme-color" content="#070809">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #070809; color: #fff; }
+    header { position: sticky; top: 0; z-index: 10; padding: 14px 14px 10px; background: rgba(7, 8, 9, .96); border-bottom: 1px solid rgba(255,255,255,.08); }
+    h1, h2, p { margin: 0; }
+    h1 { font-size: 24px; letter-spacing: 0; }
+    header p { color: #a9bdd4; margin-top: 4px; }
+    main { padding: 12px 12px 116px; max-width: 980px; margin: 0 auto; }
+    .customer-box, .status-box { border: 1px solid rgba(160,180,200,.18); border-radius: 12px; background: #11161b; padding: 12px; margin-bottom: 12px; }
+    .type-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px; }
+    button { font: inherit; cursor: pointer; }
+    .type-row button, .submit-order, .cart-toggle { min-height: 46px; border: 0; border-radius: 10px; background: #222a32; color: #fff; font-weight: 900; }
+    .type-row button.active, .submit-order { background: #ed1c24; }
+    .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+    input, textarea { width: 100%; min-height: 46px; border-radius: 10px; border: 1px solid rgba(160,180,200,.22); background: #090d10; color: #fff; padding: 10px 12px; font-size: 16px; }
+    textarea { margin-top: 8px; resize: vertical; }
+    .categories { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; scrollbar-width: none; }
+    .categories::-webkit-scrollbar { display: none; }
+    .categories button { flex: 0 0 auto; min-height: 40px; padding: 8px 12px; border: 1px solid rgba(160,180,200,.18); border-radius: 10px; background: #11161b; color: #dbe8f5; font-weight: 800; }
+    .categories button.active { background: #ed1c24; border-color: #ed1c24; color: #fff; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
+    .card { overflow: hidden; border-radius: 12px; border: 1px solid rgba(160,180,200,.16); background: #11161b; }
+    .card img { width: 100%; aspect-ratio: 1.2 / 1; object-fit: cover; display: block; background: #0b0f13; }
+    .info { padding: 9px 10px 4px; display: grid; gap: 4px; }
+    .info strong { min-height: 42px; line-height: 1.35; }
+    .info span { color: #a9bdd4; font-size: 13px; }
+    .actions { display: grid; grid-template-columns: 38px 28px 38px; gap: 6px; align-items: center; padding: 8px 10px 10px; }
+    .actions button { min-height: 36px; border: 0; border-radius: 9px; background: #ed1c24; color: #fff; font-weight: 900; font-size: 22px; line-height: 1; }
+    .actions button.minus { background: #252c33; border: 1px solid rgba(160,180,200,.18); }
+    .actions b { text-align: center; }
+    .note-btn { grid-column: 1 / -1; min-height: 36px !important; background: #20262d !important; border: 1px solid rgba(160,180,200,.18) !important; font-size: 14px !important; }
+    .bottom-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); background: rgba(8,10,12,.96); border-top: 1px solid rgba(160,180,200,.16); }
+    .bottom-bar strong { align-self: center; white-space: nowrap; }
+    .submit-order { grid-column: 1 / -1; }
+    .cart-sheet { position: fixed; left: 0; right: 0; bottom: 96px; z-index: 19; max-height: 65vh; overflow: auto; transform: translateY(calc(100% + 100px)); transition: transform .2s ease; border-radius: 16px 16px 0 0; background: #11161b; border-top: 1px solid rgba(160,180,200,.18); padding: 12px; }
+    body.cart-open .cart-sheet { transform: translateY(0); }
+    .cart-line { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .cart-line small { display: block; color: #a9bdd4; margin-top: 4px; }
+    .status-box { color: #35e56f; font-weight: 900; min-height: 44px; }
+    .empty { color: #a9bdd4; text-align: center; padding: 28px 0; grid-column: 1 / -1; }
+    @media (max-width: 390px) { .grid { gap: 8px; } .info strong { font-size: 14px; } .field-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Smokey BBQ & Grill</h1>
+    <p>اختار طلبك، والكاشير يراجع الطلب ويقبله قبل التجهيز.</p>
+  </header>
+  <main>
+    <section class="customer-box">
+      <div class="type-row">
+        <button class="active" type="button" data-type="استلام">استلام</button>
+        <button type="button" data-type="توصيل">توصيل</button>
+      </div>
+      <div class="field-grid">
+        <input id="customerName" type="text" placeholder="الاسم">
+        <input id="customerPhone" type="tel" inputmode="tel" placeholder="رقم الهاتف">
+      </div>
+      <textarea id="customerNote" rows="2" placeholder="ملاحظة أو عنوان التوصيل"></textarea>
+    </section>
+    <div class="status-box" id="statusBox">جاهز لاستقبال طلبك.</div>
+    <nav class="categories" id="categories"></nav>
+    <section class="grid" id="products"><p class="empty">جاري تحميل الأصناف...</p></section>
+  </main>
+  <aside class="cart-sheet" id="cartSheet">
+    <h2>مراجعة السلة</h2>
+    <div id="cartItems"><p class="empty">السلة فارغة.</p></div>
+  </aside>
+  <footer class="bottom-bar">
+    <button class="cart-toggle" id="cartToggle" type="button">السلة <span id="cartCount">0</span></button>
+    <strong id="cartTotal">0 د.ل</strong>
+    <button class="submit-order" id="submitOrder" type="button">إرسال الطلب للكاشير</button>
+  </footer>
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: String.fromCharCode(65,73,122,97,83,121,65,56,68,118,104,45,108,52,85,51,115,56,76,100,75,108,110,104,87,121,72,57,99,57,49,79,122,105,71,78,95,70,69),
+      authDomain: "restaurant-test-269e3.firebaseapp.com",
+      projectId: "restaurant-test-269e3",
+      storageBucket: "restaurant-test-269e3.firebasestorage.app",
+      messagingSenderId: "301369717216",
+      appId: "1:301369717216:web:b378ea41a4d94718ddfb85"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const fallbackImages = {
+      burger: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=700&q=80",
+      chicken: "https://images.unsplash.com/photo-1606755962773-d324e0a13086?auto=format&fit=crop&w=700&q=80",
+      wrap: "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?auto=format&fit=crop&w=700&q=80",
+      fries: "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=700&q=80",
+      drinks: "https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=700&q=80",
+      default: "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=700&q=80"
+    };
+    const state = { products: [], cart: [], category: "الكل", type: "استلام", lastOrderId: null };
+    const categories = ["الكل", "برغر", "دجاج", "سندوتشات", "تورتيلا", "سناكس", "مشروبات"];
+
+    function $(selector) { return document.querySelector(selector); }
+    function $$(selector) { return Array.from(document.querySelectorAll(selector)); }
+    function money(value) { return `${Number(value || 0)} د.ل`; }
+    function esc(value) { return String(value ?? "").replace(/[&<>"]/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[char])); }
+    function image(product) {
+      if (product.imageData) return product.imageData;
+      if (product.imageUrl) return product.imageUrl;
+      const text = `${product.name || ""} ${product.category || ""}`;
+      if (/مشروب|ميرندا|سفن|بيبسي|كوكا|ماء/.test(text)) return fallbackImages.drinks;
+      if (/سناكس|بطاطا|بصل|أجنحة/.test(text)) return fallbackImages.fries;
+      if (/تورتيلا|راب|تاكوس|توستر|رول/.test(text)) return fallbackImages.wrap;
+      if (/دجاج|تشكن|فاهيتا|ستيك/.test(text)) return fallbackImages.chicken;
+      if (/برغر|برجر/.test(text)) return fallbackImages.burger;
+      return fallbackImages.default;
+    }
+    function qty(name) { return state.cart.filter((line) => line.name === name).reduce((sum, line) => sum + Number(line.qty || 0), 0); }
+    function add(name) {
+      const product = state.products.find((item) => item.name === name);
+      if (!product) return;
+      const line = state.cart.find((item) => item.name === name && !item.note);
+      if (line) line.qty += 1;
+      else state.cart.push({ name: product.name, price: Number(product.price) || 0, qty: 1, note: "" });
+      render();
+    }
+    function dec(name) {
+      const line = state.cart.find((item) => item.name === name && !item.note) || [...state.cart].reverse().find((item) => item.name === name);
+      if (!line) return;
+      line.qty -= 1;
+      state.cart = state.cart.filter((item) => item.qty > 0);
+      render();
+    }
+    function note(name) {
+      add(name);
+      const line = state.cart.find((item) => item.name === name && !item.note) || [...state.cart].reverse().find((item) => item.name === name);
+      const value = prompt("اكتب ملاحظة الصنف مثل: بدون هريسة، زيادة صوص", line?.note || "");
+      if (value !== null && line) line.note = value.trim();
+      render();
+    }
+    function renderCategories() {
+      $("#categories").innerHTML = categories.map((category) => `<button class="${state.category === category ? "active" : ""}" data-category="${esc(category)}">${esc(category)}</button>`).join("");
+      $$('[data-category]').forEach((button) => button.addEventListener("click", () => { state.category = button.dataset.category; render(); }));
+    }
+    function renderProducts() {
+      const filtered = state.products.filter((product) => product.available !== false && (state.category === "الكل" || product.category === state.category));
+      $("#products").innerHTML = filtered.length ? filtered.map((product) => `
+        <article class="card">
+          <img src="${esc(image(product))}" alt="${esc(product.name)}" loading="lazy">
+          <div class="info"><strong>${esc(product.name)}</strong><span>${esc(product.category || "")} · ${money(product.price)}</span></div>
+          <div class="actions">
+            <button class="minus" data-dec="${esc(product.name)}" type="button">−</button>
+            <b>${qty(product.name)}</b>
+            <button data-add="${esc(product.name)}" type="button">+</button>
+            <button class="note-btn" data-note="${esc(product.name)}" type="button">ملاحظات</button>
+          </div>
+        </article>`).join("") : `<p class="empty">لا توجد أصناف في هذا التصنيف.</p>`;
+      $$('[data-add]').forEach((button) => button.addEventListener("click", () => add(button.dataset.add)));
+      $$('[data-dec]').forEach((button) => button.addEventListener("click", () => dec(button.dataset.dec)));
+      $$('[data-note]').forEach((button) => button.addEventListener("click", () => note(button.dataset.note)));
+    }
+    function renderCart() {
+      const total = state.cart.reduce((sum, item) => sum + Number(item.qty || 0) * Number(item.price || 0), 0);
+      const count = state.cart.reduce((sum, item) => sum + Number(item.qty || 0), 0);
+      $("#cartCount").textContent = count;
+      $("#cartTotal").textContent = money(total);
+      $("#cartItems").innerHTML = state.cart.length ? state.cart.map((item) => `
+        <div class="cart-line"><div><strong>${esc(item.name)}</strong>${item.note ? `<small>${esc(item.note)}</small>` : ""}</div><b>${item.qty}x · ${money(item.price * item.qty)}</b></div>
+      `).join("") : `<p class="empty">السلة فارغة.</p>`;
+    }
+    function render() { renderCategories(); renderProducts(); renderCart(); }
+    async function submitOrder() {
+      if (!state.cart.length) return alert("اختار صنف واحد على الأقل.");
+      const name = $("#customerName").value.trim();
+      const phone = $("#customerPhone").value.trim();
+      if (!name || !phone) return alert("اكتب الاسم ورقم الهاتف.");
+      const total = state.cart.reduce((sum, item) => sum + Number(item.qty || 0) * Number(item.price || 0), 0);
+      const payload = {
+        status: "في انتظار الموافقة",
+        type: state.type,
+        customer: { name, phone },
+        note: $("#customerNote").value.trim(),
+        items: state.cart.map((item) => ({ name: item.name, qty: item.qty, price: Number(item.price) || 0, notes: item.note ? [item.note] : [], modifiers: [] })),
+        total,
+        source: "customer-link",
+        createdAt: Date.now()
+      };
+      $("#submitOrder").disabled = true;
+      try {
+        const ref = await db.collection("onlineOrders").add(payload);
+        state.lastOrderId = ref.id;
+        state.cart = [];
+        $("#statusBox").textContent = "تم إرسال الطلب. في انتظار موافقة الكاشير.";
+        listenOrder(ref.id);
+        render();
+      } catch (error) {
+        console.warn(error);
+        alert("تعذر إرسال الطلب. حاول مرة ثانية.");
+      } finally {
+        $("#submitOrder").disabled = false;
+      }
+    }
+    function listenOrder(id) {
+      db.collection("onlineOrders").doc(id).onSnapshot((doc) => {
+        if (!doc.exists) return;
+        const data = doc.data() || {};
+        if (data.status === "مقبول") $("#statusBox").textContent = `تم قبول الطلب. رقم طلبك #${data.orderNumber || data.orderId || "-"}`;
+        else if (data.status === "مرفوض") $("#statusBox").textContent = "تم رفض الطلب. تواصل مع المطعم.";
+        else $("#statusBox").textContent = "طلبك في انتظار موافقة الكاشير.";
+      });
+    }
+    $$("[data-type]").forEach((button) => button.addEventListener("click", () => {
+      $$("[data-type]").forEach((item) => item.classList.remove("active"));
+      button.classList.add("active");
+      state.type = button.dataset.type;
+    }));
+    $("#cartToggle").addEventListener("click", () => document.body.classList.toggle("cart-open"));
+    $("#submitOrder").addEventListener("click", submitOrder);
+    db.collection("products").onSnapshot((snapshot) => {
+      state.products = snapshot.docs.map((doc) => ({ id: Number(doc.data().id || doc.id), ...(doc.data() || {}) })).sort((a, b) => Number(a.id) - Number(b.id));
+      render();
+    }, (error) => {
+      console.warn(error);
+      $("#products").innerHTML = `<p class="empty">تعذر تحميل الأصناف.</p>`;
+    });
+    renderCategories();
+    renderCart();
+  </script>
+</body>
+</html>
