@@ -30,6 +30,24 @@
     return Number.isFinite(number) ? number : fallback;
   }
 
+  function sanitizeForFirestore(value) {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (Array.isArray(value)) {
+      return value.map(sanitizeForFirestore).filter((item) => item !== undefined);
+    }
+    if (value && typeof value === "object") {
+      if (typeof value.toDate === "function" || typeof value.toMillis === "function") return value;
+      const clean = {};
+      Object.entries(value).forEach(([key, entry]) => {
+        const sanitized = sanitizeForFirestore(entry);
+        if (sanitized !== undefined) clean[key] = sanitized;
+      });
+      return clean;
+    }
+    return value;
+  }
+
   function activeCycleFromState() {
     const orders = getState()?.orders || [];
     const latest = orders.find((order) => order.orderCycle && order.orderCycle !== LEGACY_CYCLE);
@@ -82,7 +100,7 @@
     const id = toNumber(order.orderNumber || order.id, 0);
     const cycle = order.orderCycle || activeCycleFromState();
     const docId = order.firebaseDocId || docIdForOrder({ ...order, id, orderCycle: cycle });
-    return {
+    return sanitizeForFirestore({
       ...order,
       id,
       orderNumber: id,
@@ -97,7 +115,7 @@
       canceledBy: order.deletedBy || order.canceledBy || null,
       items: Array.isArray(order.items) ? order.items : [],
       syncedAt: now
-    };
+    });
   }
 
   function rememberPending(docId, patch) {
@@ -124,7 +142,7 @@
 
   async function writeOrder(order, patch) {
     const db = getDb();
-    if (!db) throw new Error("FIREBASE_NOT_READY");
+    if (!db) throw new Error("Firebase غير جاهز في الصفحة");
     const merged = { ...order, ...patch };
     const docId = docIdForOrder(merged);
     merged.firebaseDocId = docId;
@@ -155,7 +173,7 @@
       onlinePatch.canceledAt = patch.canceledAt || patch.deletedAtMs || Date.now();
       onlinePatch.canceledBy = patch.canceledBy || patch.deletedBy || currentUserName();
     }
-    await db.collection("onlineOrders").doc(order.onlineOrderId).set(onlinePatch, { merge: true });
+    await db.collection("onlineOrders").doc(order.onlineOrderId).set(sanitizeForFirestore(onlinePatch), { merge: true });
   }
 
   async function markOrderReady(ref) {
@@ -174,7 +192,7 @@
       await syncOnlineOrderStatus(saved, patch);
     } catch (error) {
       console.warn("Firebase ready action failed", error);
-      alert("تعذر حفظ حالة الطلب جاهز. تأكد من الاتصال وحاول مرة ثانية.");
+      alert(`تعذر حفظ حالة الطلب جاهز: ${error.message || error.code || "خطأ غير معروف"}`);
     }
   }
 
@@ -210,7 +228,7 @@
       catch (printError) { console.warn("Cancel print failed", printError); }
     } catch (error) {
       console.warn("Firebase cancel action failed", error);
-      alert("تعذر حفظ إلغاء الطلب. تأكد من الاتصال وحاول مرة ثانية.");
+      alert(`تعذر حفظ إلغاء الطلب: ${error.message || error.code || "خطأ غير معروف"}`);
     }
   }
 
@@ -218,15 +236,15 @@
     const db = getDb();
     if (!db || !id) return;
     try {
-      await db.collection("onlineOrders").doc(id).set({
+      await db.collection("onlineOrders").doc(id).set(sanitizeForFirestore({
         status: ONLINE_DECLINED,
         liveStatus: ONLINE_DECLINED,
         declinedAt: Date.now(),
         declinedBy: currentUserName()
-      }, { merge: true });
+      }), { merge: true });
     } catch (error) {
       console.warn("Decline online order failed", error);
-      alert("تعذر رفض الطلب. حاول مرة ثانية.");
+      alert(`تعذر رفض الطلب: ${error.message || error.code || "خطأ غير معروف"}`);
     }
   }
 
@@ -284,19 +302,19 @@
 
         transaction.set(orderRef, normalizeOrderForWrite(order));
         transaction.set(counterRef, { next: orderNumber + 1, activeCycle: cycle, updatedAt: now }, { merge: true });
-        transaction.set(onlineRef, {
+        transaction.set(onlineRef, sanitizeForFirestore({
           status: ONLINE_ACCEPTED,
           liveStatus: WAITING_STATUS,
           orderNumber,
           orderId: orderNumber,
           acceptedAt: now,
           acceptedBy: order.cashier
-        }, { merge: true });
+        }), { merge: true });
         return order;
       });
     } catch (error) {
       console.warn("Approve online order transaction failed", error);
-      alert(`تعذر قبول الطلب. ${error.message || "حاول مرة ثانية."}`);
+      alert(`تعذر قبول الطلب: ${error.message || error.code || "حاول مرة ثانية"}`);
       return;
     }
 
@@ -380,5 +398,5 @@
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", installCustomerLiveStatusPatch, { once: true });
   else installCustomerLiveStatusPatch();
 
-  console.log("Smokey Firebase order action guard is active.");
+  console.log("Smokey Firebase order action guard is active with Firestore sanitizing.");
 })();
