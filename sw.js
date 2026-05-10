@@ -1,5 +1,19 @@
-const CACHE_NAME = "smokey-pos-v57-firebase-atomic-orders";
+const CACHE_NAME = "smokey-pos-v58-logo-path-fix";
 const FIREBASE_BRIDGE_SCRIPTS = `
+  <script>
+    (function () {
+      function fixSmokeyLogoPath() {
+        document.querySelectorAll('img').forEach(function (img) {
+          var src = img.getAttribute('src') || '';
+          if (src.indexOf('WhatsApp Image') !== -1 || src.indexOf('smokey-logo.jpeg') !== -1) {
+            img.src = './assets/smokey-logo.jpeg';
+          }
+        });
+      }
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fixSmokeyLogoPath);
+      else fixSmokeyLogoPath();
+    })();
+  </script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
   <script src="./firebase-orders-bridge.js?v=6"></script>
