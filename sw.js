@@ -1,4 +1,4 @@
-const CACHE_NAME = "smokey-pos-v66-ready-status-guard";
+const CACHE_NAME = "smokey-pos-v67-ready-source-guard";
 const ENHANCEMENT_SCRIPTS = `
   <link rel="stylesheet" href="./mobile-sales-enhancements.css?v=1">
   <script src="./mobile-sales-enhancements.js?v=1"></script>
@@ -23,7 +23,7 @@ const FIREBASE_BRIDGE_SCRIPTS = `
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
   <script src="./firebase-orders-bridge.js?v=8"></script>
   <script src="./firebase-order-reset.js?v=3"></script>
-  <script src="./firebase-ready-status-hotfix.js?v=2"></script>
+  <script src="./firebase-ready-status-hotfix.js?v=3"></script>
   ${ENHANCEMENT_SCRIPTS}
 `;
 const FILES_TO_CACHE = [
@@ -33,7 +33,7 @@ const FILES_TO_CACHE = [
   "./app.js?v=51",
   "./firebase-orders-bridge.js?v=8",
   "./firebase-order-reset.js?v=3",
-  "./firebase-ready-status-hotfix.js?v=2",
+  "./firebase-ready-status-hotfix.js?v=3",
   "./mobile-sales-enhancements.css?v=1",
   "./mobile-sales-enhancements.js?v=1",
   "./manifest.json",
@@ -54,10 +54,10 @@ async function injectFirebaseBridge(response) {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
   const html = await response.text();
-  if (html.includes("firebase-ready-status-hotfix.js?v=2")) {
+  if (html.includes("firebase-ready-status-hotfix.js?v=3")) {
     return new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers });
   }
-  const scripts = html.includes("firebase-order-reset.js?v=3") ? ENHANCEMENT_SCRIPTS + `\n<script src="./firebase-ready-status-hotfix.js?v=2"></script>` : FIREBASE_BRIDGE_SCRIPTS;
+  const scripts = html.includes("firebase-order-reset.js?v=3") ? ENHANCEMENT_SCRIPTS + `\n<script src="./firebase-ready-status-hotfix.js?v=3"></script>` : FIREBASE_BRIDGE_SCRIPTS;
   const patched = html.replace("</body>", `${scripts}\n</body>`);
   return new Response(patched, {
     status: response.status,
