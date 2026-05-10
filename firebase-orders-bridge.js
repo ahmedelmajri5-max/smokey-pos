@@ -29,11 +29,14 @@
     orderCounter: db.collection("counters").doc("orders")
   };
 
+  const LEGACY_CYCLE = "legacy";
   const original = {
     saveOrders: typeof saveOrders === "function" ? saveOrders : null,
     confirmOrder: typeof confirmOrder === "function" ? confirmOrder : null,
     deleteOrder: typeof deleteOrder === "function" ? deleteOrder : null,
     markReady: typeof markReady === "function" ? markReady : null,
+    editOrder: typeof editOrder === "function" ? editOrder : null,
+    printOrderById: typeof printOrderById === "function" ? printOrderById : null,
     saveProducts: typeof saveProducts === "function" ? saveProducts : null,
     saveInventory: typeof saveInventory === "function" ? saveInventory : null,
     saveInventoryTransactions: typeof saveInventoryTransactions === "function" ? saveInventoryTransactions : null,
@@ -44,6 +47,8 @@
   let applyingRemoteSnapshot = false;
   let confirmingOrder = false;
   let syncStarted = false;
+  let activeCycle = LEGACY_CYCLE;
+  let counterNext = Number(state.nextOrder || 1) || 1;
 
   function toMillis(value) {
     if (!value) return 0;
@@ -57,12 +62,27 @@
     return 0;
   }
 
-  function getMaxOrderId() {
-    return (Array.isArray(state.orders) ? state.orders : []).reduce((max, order) => Math.max(max, Number(order && order.id) || 0), 0);
+  function docIdForOrder(order) {
+    if (!order) return "";
+    if (order.firebaseDocId) return String(order.firebaseDocId);
+    const cycle = order.orderCycle || activeCycle || LEGACY_CYCLE;
+    const id = Number(order.id || order.orderNumber);
+    if (!id) return "";
+    return cycle === LEGACY_CYCLE ? String(id) : `${cycle}-${id}`;
   }
 
-  function setCurrentOrderLabel() {
-    state.nextOrder = Math.max(Number(state.nextOrder || 1), getMaxOrderId() + 1);
+  function findOrderByRef(ref) {
+    const value = String(ref || "");
+    const numeric = Number(value);
+    const orders = Array.isArray(state.orders) ? state.orders : [];
+    return orders.find((order) => String(order.firebaseDocId || "") === value)
+      || orders.find((order) => String(docIdForOrder(order)) === value)
+      || orders.find((order) => Number(order.id) === numeric)
+      || null;
+  }
+
+  function setCurrentOrderLabel(next) {
+    state.nextOrder = Math.max(Number(next || counterNext || 1), 1);
     const currentOrder = document.querySelector("#currentOrder");
     if (currentOrder) currentOrder.textContent = `#${state.nextOrder}`;
   }
@@ -72,8 +92,9 @@
   }
 
   function renderEverything() {
-    setCurrentOrderLabel();
+    setCurrentOrderLabel(counterNext);
     if (typeof renderAll === "function") renderAll();
+    setCurrentOrderLabel(counterNext);
   }
 
   function formatTime(value) {
@@ -102,9 +123,15 @@
 
   function normalizeOrderForFirestore(order) {
     const createdAt = Number(order.createdAt) || Number(order.createdAtMs) || Date.now();
+    const orderNumber = Number(order.orderNumber || order.id);
+    const cycle = order.orderCycle || activeCycle || LEGACY_CYCLE;
+    const docId = order.firebaseDocId || `${cycle}-${orderNumber}`;
     return {
       ...order,
-      id: Number(order.id),
+      id: orderNumber,
+      orderNumber,
+      orderCycle: cycle,
+      firebaseDocId: docId,
       batchId: Number(order.batchId) || 1,
       total: Number(order.total) || 0,
       createdAt,
@@ -120,9 +147,15 @@
 
   function normalizeOrderFromFirestore(doc) {
     const data = doc.data() || {};
+    const parsedDocNumber = /^\d+$/.test(doc.id) ? Number(doc.id) : 0;
+    const id = Number(data.orderNumber || data.id || parsedDocNumber);
+    const cycle = data.orderCycle || data.resetCycle || (parsedDocNumber ? LEGACY_CYCLE : activeCycle || LEGACY_CYCLE);
     return {
       ...data,
-      id: Number(data.id || doc.id),
+      id,
+      orderNumber: id,
+      orderCycle: cycle,
+      firebaseDocId: doc.id,
       batchId: Number(data.batchId) || 1,
       total: Number(data.total) || 0,
       createdAt: toMillis(data.createdAt) || Number(data.createdAt) || Date.now(),
@@ -233,7 +266,10 @@
 
   async function upsertOrder(order) {
     if (!order || !order.id) return;
-    await refs.orders.doc(String(order.id)).set(normalizeOrderForFirestore(order), { merge: true });
+    const docId = docIdForOrder(order) || `${activeCycle}-${Number(order.id)}`;
+    order.firebaseDocId = docId;
+    order.orderCycle = order.orderCycle || activeCycle || LEGACY_CYCLE;
+    await refs.orders.doc(docId).set(normalizeOrderForFirestore(order), { merge: true });
   }
 
   function buildOrderPayload() {
@@ -261,18 +297,18 @@
   async function createOrderAtomically(orderPayload) {
     return db.runTransaction(async (transaction) => {
       const counterSnap = await transaction.get(refs.orderCounter);
-      let reservedNumber = Math.max(
-        counterSnap.exists ? Number(counterSnap.data().next || 1) : 1,
-        Number(state.nextOrder || 1),
-        getMaxOrderId() + 1
-      );
-
-      let orderRef = refs.orders.doc(String(reservedNumber));
+      const counter = counterSnap.exists ? counterSnap.data() || {} : {};
+      const cycle = counter.activeCycle || counter.cycle || activeCycle || LEGACY_CYCLE;
+      let reservedNumber = Math.max(Number(counter.next || state.nextOrder || 1), 1);
+      let docId = `${cycle}-${reservedNumber}`;
+      let orderRef = refs.orders.doc(docId);
       let orderSnap = await transaction.get(orderRef);
       let guard = 0;
-      while (orderSnap.exists && guard < 25) {
+
+      while (orderSnap.exists && guard < 50) {
         reservedNumber += 1;
-        orderRef = refs.orders.doc(String(reservedNumber));
+        docId = `${cycle}-${reservedNumber}`;
+        orderRef = refs.orders.doc(docId);
         orderSnap = await transaction.get(orderRef);
         guard += 1;
       }
@@ -280,12 +316,15 @@
 
       const savedOrder = {
         id: reservedNumber,
+        orderNumber: reservedNumber,
+        orderCycle: cycle,
+        firebaseDocId: docId,
         batchId: typeof getNextBatchId === "function" ? getNextBatchId() : 1,
         ...orderPayload
       };
 
       transaction.set(orderRef, normalizeOrderForFirestore(savedOrder));
-      transaction.set(refs.orderCounter, { next: reservedNumber + 1, updatedAt: Date.now() }, { merge: true });
+      transaction.set(refs.orderCounter, { next: reservedNumber + 1, activeCycle: cycle, updatedAt: Date.now() }, { merge: true });
       return savedOrder;
     });
   }
@@ -299,11 +338,18 @@
       return;
     }
 
-    if (state.editingOrderId) {
-      const editingId = Number(state.editingOrderId);
+    if (state.editingOrderId || state.editingOrderRef) {
+      const editingOrder = findOrderByRef(state.editingOrderRef || state.editingOrderId);
+      if (!editingOrder) return;
+      const editingRef = editingOrder.firebaseDocId || docIdForOrder(editingOrder);
       original.confirmOrder();
-      const editedOrder = (state.orders || []).find((order) => Number(order.id) === editingId);
-      if (editedOrder) upsertOrder(editedOrder).catch((error) => console.warn("Firebase edit sync failed:", error));
+      const editedOrder = findOrderByRef(editingRef) || findOrderByRef(state.editingOrderId) || editingOrder;
+      if (editedOrder) {
+        editedOrder.firebaseDocId = editingRef;
+        editedOrder.orderCycle = editedOrder.orderCycle || editingOrder.orderCycle || activeCycle;
+        upsertOrder(editedOrder).catch((error) => console.warn("Firebase edit sync failed:", error));
+      }
+      state.editingOrderRef = null;
       return;
     }
 
@@ -324,13 +370,15 @@
     try {
       const savedOrder = await createOrderAtomically(orderPayload);
       state.orders.unshift(savedOrder);
-      state.nextOrder = Math.max(Number(savedOrder.id) + 1, getMaxOrderId() + 1);
+      counterNext = Number(savedOrder.id) + 1;
+      setCurrentOrderLabel(counterNext);
       if (typeof deductInventoryForOrder === "function") deductInventoryForOrder(savedOrder);
       if (typeof printOrder === "function") printOrder(savedOrder, "فاتورة طلب");
 
       state.cart = [];
       state.customerInfo = { name: "", phone: "" };
       state.editingOrderId = null;
+      state.editingOrderRef = null;
       if (confirmButton) confirmButton.textContent = "تأكيد الطلب وطباعة";
       const orderNote = document.querySelector("#orderNote");
       if (orderNote) orderNote.value = "";
@@ -359,18 +407,44 @@
     }
 
     if (original.deleteOrder) {
-      deleteOrder = function deleteOrderFirebaseBridge(id) {
-        original.deleteOrder(id);
-        const order = (state.orders || []).find((item) => Number(item.id) === Number(id));
-        if (order) upsertOrder(order).catch((error) => console.warn("Firebase cancel sync failed:", error));
+      deleteOrder = function deleteOrderFirebaseBridge(ref) {
+        const order = findOrderByRef(ref);
+        if (!order) return;
+        const docId = order.firebaseDocId || docIdForOrder(order);
+        original.deleteOrder(order.id);
+        const updatedOrder = findOrderByRef(docId) || order;
+        updatedOrder.firebaseDocId = docId;
+        updatedOrder.orderCycle = updatedOrder.orderCycle || order.orderCycle || activeCycle;
+        upsertOrder(updatedOrder).catch((error) => console.warn("Firebase cancel sync failed:", error));
       };
     }
 
     if (original.markReady) {
-      markReady = function markReadyFirebaseBridge(id) {
-        original.markReady(id);
-        const order = (state.orders || []).find((item) => Number(item.id) === Number(id));
-        if (order) upsertOrder(order).catch((error) => console.warn("Firebase ready sync failed:", error));
+      markReady = function markReadyFirebaseBridge(ref) {
+        const order = findOrderByRef(ref);
+        if (!order) return;
+        const docId = order.firebaseDocId || docIdForOrder(order);
+        order.status = "جاهز";
+        order.readyAt = Date.now();
+        order.firebaseDocId = docId;
+        upsertOrder(order).catch((error) => console.warn("Firebase ready sync failed:", error));
+        renderEverything();
+      };
+    }
+
+    if (original.editOrder) {
+      editOrder = function editOrderFirebaseBridge(ref) {
+        const order = findOrderByRef(ref);
+        if (!order) return;
+        state.editingOrderRef = order.firebaseDocId || docIdForOrder(order);
+        original.editOrder(order.id);
+      };
+    }
+
+    if (original.printOrderById) {
+      printOrderById = function printOrderFirebaseBridge(ref, title) {
+        const order = findOrderByRef(ref);
+        if (order && typeof printOrder === "function") printOrder(order, title || "فاتورة طلب");
       };
     }
   }
@@ -379,7 +453,7 @@
     if (original.saveOrders) {
       saveOrders = function saveOrdersFirebaseBridge() {
         original.saveOrders();
-        setCurrentOrderLabel();
+        setCurrentOrderLabel(counterNext);
       };
     }
     if (original.saveProducts) {
@@ -426,7 +500,9 @@
       return matchesSearch && matchesStatus && matchesDate;
     });
 
-    table.innerHTML = visibleOrders.map((order) => `
+    table.innerHTML = visibleOrders.map((order) => {
+      const ref = order.firebaseDocId || docIdForOrder(order) || order.id;
+      return `
       <tr>
         <td>#${order.id}</td>
         <td>${order.type || "-"}</td>
@@ -436,13 +512,13 @@
         <td>${order.cashier || order.createdBy || "-"}</td>
         <td>
           <div class="table-actions">
-            <button class="ghost-small" type="button" data-print-order="${order.id}">طباعة</button>
-            <button class="ghost-small" type="button" data-edit-order="${order.id}" ${order.status === "ملغي" || !canManageOrder(order) ? "disabled" : ""}>تعديل</button>
-            <button class="danger-small" type="button" data-delete-order="${order.id}" ${order.status === "ملغي" || !canManageOrder(order) ? "disabled" : ""}>إلغاء</button>
+            <button class="ghost-small" type="button" data-print-order="${ref}">طباعة</button>
+            <button class="ghost-small" type="button" data-edit-order="${ref}" ${order.status === "ملغي" || !canManageOrder(order) ? "disabled" : ""}>تعديل</button>
+            <button class="danger-small" type="button" data-delete-order="${ref}" ${order.status === "ملغي" || !canManageOrder(order) ? "disabled" : ""}>إلغاء</button>
           </div>
         </td>
-      </tr>
-    `).join("");
+      </tr>`;
+    }).join("");
 
     if (!visibleOrders.length) table.innerHTML = `<tr><td colspan="7">لا توجد طلبات مطابقة.</td></tr>`;
     document.querySelectorAll("[data-print-order]").forEach((button) => button.addEventListener("click", () => printOrderById(button.dataset.printOrder, "فاتورة طلب")));
@@ -461,11 +537,19 @@
     }
   }
 
+  function startCounterRealtimeSync() {
+    refs.orderCounter.onSnapshot((doc) => {
+      const data = doc.exists ? doc.data() || {} : {};
+      activeCycle = data.activeCycle || data.cycle || activeCycle || LEGACY_CYCLE;
+      counterNext = Math.max(Number(data.next || counterNext || 1), 1);
+      setCurrentOrderLabel(counterNext);
+    }, (error) => console.warn("Firebase order counter listener failed:", error));
+  }
+
   function startOrdersRealtimeSync() {
     refs.orders.orderBy("createdAt", "desc").onSnapshot((snapshot) => {
       applyingRemoteSnapshot = true;
       state.orders = snapshot.docs.map(normalizeOrderFromFirestore);
-      state.nextOrder = Math.max(Number(state.nextOrder || 1), getMaxOrderId() + 1);
       localSave(original.saveOrders);
       renderEverything();
       applyingRemoteSnapshot = false;
@@ -578,6 +662,7 @@
   window.addEventListener("load", async () => {
     if (syncStarted) return;
     syncStarted = true;
+    startCounterRealtimeSync();
     startOrdersRealtimeSync();
     await Promise.allSettled([
       startProductsRealtimeSync(),
@@ -586,6 +671,6 @@
       startInventorySettingsRealtimeSync(),
       startUsersRealtimeSync()
     ]);
-    console.log("Smokey POS Firebase realtime bridge is active for orders, products, inventory, users, settings, and reports.");
+    console.log("Smokey POS Firebase realtime bridge is active with non-destructive order number cycles.");
   });
 })();
