@@ -1,9 +1,9 @@
-const CACHE_NAME = "smokey-pos-v69-order-actions-guard";
+const CACHE_NAME = "smokey-pos-v70-order-actions-guard";
 const ENHANCEMENT_SCRIPTS = `
   <link rel="stylesheet" href="./mobile-sales-enhancements.css?v=1">
   <script src="./mobile-sales-enhancements.js?v=1"></script>
 `;
-const ORDER_ACTION_GUARD_SCRIPT = `<script src="./firebase-order-actions-hotfix.js?v=1"></script>`;
+const ORDER_ACTION_GUARD_SCRIPT = `<script src="./firebase-order-actions-hotfix.js?v=2"></script>`;
 const CUSTOMER_STATUS_GUARD_SCRIPT = `<script src="./firebase-customer-status-hotfix.js?v=1"></script>`;
 const FIREBASE_BRIDGE_SCRIPTS = `
   <script>
@@ -38,7 +38,7 @@ const FILES_TO_CACHE = [
   "./firebase-orders-bridge.js?v=8",
   "./firebase-order-reset.js?v=3",
   "./firebase-ready-status-hotfix.js?v=3",
-  "./firebase-order-actions-hotfix.js?v=1",
+  "./firebase-order-actions-hotfix.js?v=2",
   "./firebase-customer-status-hotfix.js?v=1",
   "./mobile-sales-enhancements.css?v=1",
   "./mobile-sales-enhancements.js?v=1",
@@ -60,7 +60,7 @@ async function injectFirebaseBridge(response) {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
   const html = await response.text();
-  if (html.includes("firebase-order-actions-hotfix.js?v=1") && html.includes("firebase-customer-status-hotfix.js?v=1")) {
+  if (html.includes("firebase-order-actions-hotfix.js?v=2") && html.includes("firebase-customer-status-hotfix.js?v=1")) {
     return new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers });
   }
   const scripts = html.includes("firebase-order-reset.js?v=3")
