@@ -1,9 +1,10 @@
-const CACHE_NAME = "smokey-pos-v68-order-actions-guard";
+const CACHE_NAME = "smokey-pos-v69-order-actions-guard";
 const ENHANCEMENT_SCRIPTS = `
   <link rel="stylesheet" href="./mobile-sales-enhancements.css?v=1">
   <script src="./mobile-sales-enhancements.js?v=1"></script>
 `;
 const ORDER_ACTION_GUARD_SCRIPT = `<script src="./firebase-order-actions-hotfix.js?v=1"></script>`;
+const CUSTOMER_STATUS_GUARD_SCRIPT = `<script src="./firebase-customer-status-hotfix.js?v=1"></script>`;
 const FIREBASE_BRIDGE_SCRIPTS = `
   <script>
     (function () {
@@ -26,6 +27,7 @@ const FIREBASE_BRIDGE_SCRIPTS = `
   <script src="./firebase-order-reset.js?v=3"></script>
   <script src="./firebase-ready-status-hotfix.js?v=3"></script>
   ${ORDER_ACTION_GUARD_SCRIPT}
+  ${CUSTOMER_STATUS_GUARD_SCRIPT}
   ${ENHANCEMENT_SCRIPTS}
 `;
 const FILES_TO_CACHE = [
@@ -37,6 +39,7 @@ const FILES_TO_CACHE = [
   "./firebase-order-reset.js?v=3",
   "./firebase-ready-status-hotfix.js?v=3",
   "./firebase-order-actions-hotfix.js?v=1",
+  "./firebase-customer-status-hotfix.js?v=1",
   "./mobile-sales-enhancements.css?v=1",
   "./mobile-sales-enhancements.js?v=1",
   "./manifest.json",
@@ -57,11 +60,11 @@ async function injectFirebaseBridge(response) {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
   const html = await response.text();
-  if (html.includes("firebase-order-actions-hotfix.js?v=1")) {
+  if (html.includes("firebase-order-actions-hotfix.js?v=1") && html.includes("firebase-customer-status-hotfix.js?v=1")) {
     return new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers });
   }
   const scripts = html.includes("firebase-order-reset.js?v=3")
-    ? `${ENHANCEMENT_SCRIPTS}\n<script src="./firebase-ready-status-hotfix.js?v=3"></script>\n${ORDER_ACTION_GUARD_SCRIPT}`
+    ? `${ENHANCEMENT_SCRIPTS}\n<script src="./firebase-ready-status-hotfix.js?v=3"></script>\n${ORDER_ACTION_GUARD_SCRIPT}\n${CUSTOMER_STATUS_GUARD_SCRIPT}`
     : FIREBASE_BRIDGE_SCRIPTS;
   const patched = html.replace("</body>", `${scripts}\n</body>`);
   return new Response(patched, {
