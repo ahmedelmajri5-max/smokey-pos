@@ -1,4 +1,4 @@
-const CACHE_NAME = "smokey-pos-v62-archive-reset-control";
+const CACHE_NAME = "smokey-pos-v63-non-destructive-reset";
 const FIREBASE_BRIDGE_SCRIPTS = `
   <script>
     (function () {
@@ -17,16 +17,16 @@ const FIREBASE_BRIDGE_SCRIPTS = `
   </script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-  <script src="./firebase-orders-bridge.js?v=7"></script>
-  <script src="./firebase-order-reset.js?v=2"></script>
+  <script src="./firebase-orders-bridge.js?v=8"></script>
+  <script src="./firebase-order-reset.js?v=3"></script>
 `;
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
   "./styles.css?v=51",
   "./app.js?v=51",
-  "./firebase-orders-bridge.js?v=7",
-  "./firebase-order-reset.js?v=2",
+  "./firebase-orders-bridge.js?v=8",
+  "./firebase-order-reset.js?v=3",
   "./manifest.json",
   "./assets/smokey-logo.jpeg"
 ];
@@ -45,7 +45,7 @@ async function injectFirebaseBridge(response) {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
   const html = await response.text();
-  if (html.includes("firebase-order-reset.js?v=2")) {
+  if (html.includes("firebase-order-reset.js?v=3")) {
     return new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers });
   }
   const patched = html.replace("</body>", `${FIREBASE_BRIDGE_SCRIPTS}\n</body>`);
