@@ -1,4 +1,4 @@
-const CACHE_NAME = "smokey-pos-v58-logo-path-fix";
+const CACHE_NAME = "smokey-pos-v59-state-bridge-fix";
 const FIREBASE_BRIDGE_SCRIPTS = `
   <script>
     (function () {
@@ -10,6 +10,7 @@ const FIREBASE_BRIDGE_SCRIPTS = `
           }
         });
       }
+      try { if (typeof state !== 'undefined') window.state = state; } catch (error) {}
       if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', fixSmokeyLogoPath);
       else fixSmokeyLogoPath();
     })();
