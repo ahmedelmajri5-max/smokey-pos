@@ -1,4 +1,8 @@
-const CACHE_NAME = "smokey-pos-v63-non-destructive-reset";
+const CACHE_NAME = "smokey-pos-v64-mobile-sales-enhancements";
+const ENHANCEMENT_SCRIPTS = `
+  <link rel="stylesheet" href="./mobile-sales-enhancements.css?v=1">
+  <script src="./mobile-sales-enhancements.js?v=1"></script>
+`;
 const FIREBASE_BRIDGE_SCRIPTS = `
   <script>
     (function () {
@@ -19,6 +23,7 @@ const FIREBASE_BRIDGE_SCRIPTS = `
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
   <script src="./firebase-orders-bridge.js?v=8"></script>
   <script src="./firebase-order-reset.js?v=3"></script>
+  ${ENHANCEMENT_SCRIPTS}
 `;
 const FILES_TO_CACHE = [
   "./",
@@ -27,6 +32,8 @@ const FILES_TO_CACHE = [
   "./app.js?v=51",
   "./firebase-orders-bridge.js?v=8",
   "./firebase-order-reset.js?v=3",
+  "./mobile-sales-enhancements.css?v=1",
+  "./mobile-sales-enhancements.js?v=1",
   "./manifest.json",
   "./assets/smokey-logo.jpeg"
 ];
@@ -45,10 +52,11 @@ async function injectFirebaseBridge(response) {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
   const html = await response.text();
-  if (html.includes("firebase-order-reset.js?v=3")) {
+  if (html.includes("mobile-sales-enhancements.js?v=1")) {
     return new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers });
   }
-  const patched = html.replace("</body>", `${FIREBASE_BRIDGE_SCRIPTS}\n</body>`);
+  const scripts = html.includes("firebase-order-reset.js?v=3") ? ENHANCEMENT_SCRIPTS : FIREBASE_BRIDGE_SCRIPTS;
+  const patched = html.replace("</body>", `${scripts}\n</body>`);
   return new Response(patched, {
     status: response.status,
     statusText: response.statusText,
