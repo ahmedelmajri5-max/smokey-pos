@@ -1,5 +1,5 @@
 // Firebase realtime bridge for experimental branch only.
-// Keeps app.js mostly intact while making order creation atomic in Cloud Firestore.
+// Syncs shared POS data with Firestore and reserves new order numbers atomically on confirm.
 (function () {
   const firebaseConfig = {
     apiKey: String.fromCharCode(65,73,122,97,83,121,65,56,68,118,104,45,108,52,85,51,115,56,76,100,75,108,110,104,87,121,72,57,99,57,49,79,122,105,71,78,95,70,69),
@@ -10,28 +10,36 @@
     appId: "1:301369717216:web:b378ea41a4d94718ddfb85"
   };
 
-  if (!window.firebase || !window.firebase.firestore || !window.state) {
-    console.warn("Firebase bridge skipped. Firebase scripts or app state are not ready.");
+  if (!window.firebase || !window.firebase.firestore || typeof state === "undefined") {
+    console.warn("Firebase bridge skipped. Firebase scripts or POS state are not ready.");
     return;
   }
 
+  window.state = state;
+
   const app = window.firebase.apps.length ? window.firebase.app() : window.firebase.initializeApp(firebaseConfig);
   const db = app.firestore();
-  const ordersRef = db.collection("orders");
-  const productsRef = db.collection("products");
-  const inventoryRef = db.collection("inventory");
-  const inventoryTransactionsRef = db.collection("inventoryTransactions");
-  const inventorySettingsRef = db.collection("appSettings").doc("inventory");
-  const counterRef = db.collection("counters").doc("orders");
+  const refs = {
+    orders: db.collection("orders"),
+    products: db.collection("products"),
+    inventory: db.collection("inventory"),
+    inventoryTransactions: db.collection("inventoryTransactions"),
+    users: db.collection("users"),
+    inventorySettings: db.collection("appSettings").doc("inventory"),
+    orderCounter: db.collection("counters").doc("orders")
+  };
 
-  const originalSaveOrders = typeof saveOrders === "function" ? saveOrders : null;
-  const originalConfirmOrder = typeof confirmOrder === "function" ? confirmOrder : null;
-  const originalDeleteOrder = typeof deleteOrder === "function" ? deleteOrder : null;
-  const originalMarkReady = typeof markReady === "function" ? markReady : null;
-  const originalSaveProducts = typeof saveProducts === "function" ? saveProducts : null;
-  const originalSaveInventory = typeof saveInventory === "function" ? saveInventory : null;
-  const originalSaveInventoryTransactions = typeof saveInventoryTransactions === "function" ? saveInventoryTransactions : null;
-  const originalSaveInventorySettings = typeof saveInventorySettings === "function" ? saveInventorySettings : null;
+  const original = {
+    saveOrders: typeof saveOrders === "function" ? saveOrders : null,
+    confirmOrder: typeof confirmOrder === "function" ? confirmOrder : null,
+    deleteOrder: typeof deleteOrder === "function" ? deleteOrder : null,
+    markReady: typeof markReady === "function" ? markReady : null,
+    saveProducts: typeof saveProducts === "function" ? saveProducts : null,
+    saveInventory: typeof saveInventory === "function" ? saveInventory : null,
+    saveInventoryTransactions: typeof saveInventoryTransactions === "function" ? saveInventoryTransactions : null,
+    saveInventorySettings: typeof saveInventorySettings === "function" ? saveInventorySettings : null,
+    saveUsers: typeof saveUsers === "function" ? saveUsers : null
+  };
 
   let applyingRemoteSnapshot = false;
   let confirmingOrder = false;
@@ -49,22 +57,47 @@
     return 0;
   }
 
-  function getMaxLocalOrderId() {
+  function getMaxOrderId() {
     return (Array.isArray(state.orders) ? state.orders : []).reduce((max, order) => Math.max(max, Number(order && order.id) || 0), 0);
   }
 
-  function syncCurrentOrderLabel() {
-    state.nextOrder = Math.max(Number(state.nextOrder || 1), getMaxLocalOrderId() + 1);
+  function setCurrentOrderLabel() {
+    state.nextOrder = Math.max(Number(state.nextOrder || 1), getMaxOrderId() + 1);
     const currentOrder = document.querySelector("#currentOrder");
     if (currentOrder) currentOrder.textContent = `#${state.nextOrder}`;
   }
 
-  function persistOrdersLocalOnly() {
-    if (originalSaveOrders) originalSaveOrders();
+  function localSave(fn) {
+    if (typeof fn === "function") fn();
   }
 
-  function safeRenderAll() {
+  function renderEverything() {
+    setCurrentOrderLabel();
     if (typeof renderAll === "function") renderAll();
+  }
+
+  function formatTime(value) {
+    const millis = toMillis(value);
+    if (!millis) return "-";
+    return new Date(millis).toLocaleTimeString("ar-LY", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  function orderTimeMarkup(order) {
+    const rows = [`إنشاء: ${formatTime(order.createdAt || order.createdAtMs)}`];
+    if (order.modifiedAtMs || order.updatedAt || order.modifiedAt) rows.push(`تعديل: ${formatTime(order.modifiedAtMs || order.updatedAt || order.modifiedAt)}`);
+    if (order.deletedAtMs || order.canceledAt || order.deletedAt) rows.push(`إلغاء: ${formatTime(order.deletedAtMs || order.canceledAt || order.deletedAt)}`);
+    return rows.map((row, index) => index ? `<small>${row}</small>` : `<div>${row}</div>`).join("");
+  }
+
+  function sortByNumericId(list) {
+    return [...list].sort((a, b) => Number(a.id) - Number(b.id));
+  }
+
+  function upsertById(list, item) {
+    const id = String(item && item.id);
+    const index = list.findIndex((entry) => String(entry && entry.id) === id);
+    if (index >= 0) list[index] = { ...list[index], ...item };
+    else list.push(item);
   }
 
   function normalizeOrderForFirestore(order) {
@@ -146,7 +179,7 @@
   }
 
   function normalizeInventoryTxForFirestore(tx) {
-    const id = String(tx.id || `${tx.orderId || "tx"}-${tx.createdAt || tx.time || Date.now()}-${Math.random().toString(16).slice(2)}`);
+    const id = String(tx.id || `${tx.order_id || tx.orderId || "tx"}-${tx.created_at_ms || tx.createdAt || Date.now()}-${Math.random().toString(16).slice(2)}`);
     return { ...tx, id, syncedAt: Date.now() };
   }
 
@@ -155,13 +188,25 @@
     return { ...data, id: String(data.id || doc.id) };
   }
 
+  function normalizeUserForFirestore(user) {
+    return { ...user, id: String(user.email || user.name || Date.now()), syncedAt: Date.now() };
+  }
+
+  function normalizeUserFromFirestore(doc) {
+    const data = doc.data() || {};
+    const user = { ...data };
+    delete user.id;
+    delete user.syncedAt;
+    return user.email ? user : { ...user, email: doc.id };
+  }
+
   async function pushCollection(items, ref, normalizer, idGetter) {
+    if (applyingRemoteSnapshot) return;
     const list = Array.isArray(items) ? items : [];
-    if (!list.length || applyingRemoteSnapshot) return;
+    if (!list.length) return;
     const batch = db.batch();
     let hasWrites = false;
     list.forEach((item) => {
-      if (!item) return;
       const id = String(idGetter(item));
       if (!id || id === "undefined" || id === "null") return;
       batch.set(ref.doc(id), normalizer(item), { merge: true });
@@ -170,9 +215,25 @@
     if (hasWrites) await batch.commit();
   }
 
+  async function syncUsersExact() {
+    if (applyingRemoteSnapshot) return;
+    const users = Array.isArray(state.users) ? state.users : [];
+    const remote = await refs.users.get();
+    const localIds = new Set(users.map((user) => String(user.email || user.name)).filter(Boolean));
+    const batch = db.batch();
+    remote.docs.forEach((doc) => {
+      if (!localIds.has(doc.id)) batch.delete(doc.ref);
+    });
+    users.forEach((user) => {
+      const id = String(user.email || user.name);
+      if (id) batch.set(refs.users.doc(id), normalizeUserForFirestore(user), { merge: true });
+    });
+    await batch.commit();
+  }
+
   async function upsertOrder(order) {
     if (!order || !order.id) return;
-    await ordersRef.doc(String(order.id)).set(normalizeOrderForFirestore(order), { merge: true });
+    await refs.orders.doc(String(order.id)).set(normalizeOrderForFirestore(order), { merge: true });
   }
 
   function buildOrderPayload() {
@@ -199,17 +260,23 @@
 
   async function createOrderAtomically(orderPayload) {
     return db.runTransaction(async (transaction) => {
-      const counterSnap = await transaction.get(counterRef);
-      const counterNext = counterSnap.exists ? Number(counterSnap.data().next || 1) : 1;
-      const localNext = Math.max(Number(state.nextOrder || 1), getMaxLocalOrderId() + 1);
-      const reservedNumber = Math.max(counterNext, localNext);
-      const orderRef = ordersRef.doc(String(reservedNumber));
-      const orderSnap = await transaction.get(orderRef);
+      const counterSnap = await transaction.get(refs.orderCounter);
+      let reservedNumber = Math.max(
+        counterSnap.exists ? Number(counterSnap.data().next || 1) : 1,
+        Number(state.nextOrder || 1),
+        getMaxOrderId() + 1
+      );
 
-      if (orderSnap.exists) {
-        transaction.set(counterRef, { next: reservedNumber + 1, updatedAt: Date.now() }, { merge: true });
-        throw new Error("ORDER_NUMBER_ALREADY_EXISTS");
+      let orderRef = refs.orders.doc(String(reservedNumber));
+      let orderSnap = await transaction.get(orderRef);
+      let guard = 0;
+      while (orderSnap.exists && guard < 25) {
+        reservedNumber += 1;
+        orderRef = refs.orders.doc(String(reservedNumber));
+        orderSnap = await transaction.get(orderRef);
+        guard += 1;
       }
+      if (orderSnap.exists) throw new Error("ORDER_NUMBER_RANGE_BUSY");
 
       const savedOrder = {
         id: reservedNumber,
@@ -218,27 +285,13 @@
       };
 
       transaction.set(orderRef, normalizeOrderForFirestore(savedOrder));
-      transaction.set(counterRef, { next: reservedNumber + 1, updatedAt: Date.now() }, { merge: true });
+      transaction.set(refs.orderCounter, { next: reservedNumber + 1, updatedAt: Date.now() }, { merge: true });
       return savedOrder;
     });
   }
 
-  async function createOrderWithRetry(orderPayload) {
-    let lastError;
-    for (let attempt = 0; attempt < 5; attempt += 1) {
-      try {
-        return await createOrderAtomically(orderPayload);
-      } catch (error) {
-        lastError = error;
-        if (!String(error && error.message).includes("ORDER_NUMBER_ALREADY_EXISTS")) break;
-      }
-    }
-    throw lastError;
-  }
-
   async function confirmOrderWithFirebase() {
-    if (confirmingOrder) return;
-    if (!state.cart.length) return;
+    if (confirmingOrder || !state.cart.length) return;
 
     const needsCustomerInfo = typeof requiresCustomerInfo === "function" && requiresCustomerInfo(state.orderType);
     if (needsCustomerInfo && (!state.customerInfo.name || !state.customerInfo.phone)) {
@@ -247,10 +300,10 @@
     }
 
     if (state.editingOrderId) {
-      originalConfirmOrder();
-      const editedOrder = (state.orders || []).find((order) => Number(order.id) === Number(state.editingOrderId));
-      const latestOrder = editedOrder || (state.orders || [])[0];
-      if (latestOrder) upsertOrder(latestOrder).catch((error) => console.warn("Firebase edit sync failed:", error));
+      const editingId = Number(state.editingOrderId);
+      original.confirmOrder();
+      const editedOrder = (state.orders || []).find((order) => Number(order.id) === editingId);
+      if (editedOrder) upsertOrder(editedOrder).catch((error) => console.warn("Firebase edit sync failed:", error));
       return;
     }
 
@@ -269,10 +322,9 @@
     if (confirmButton) confirmButton.disabled = true;
 
     try {
-      const savedOrder = await createOrderWithRetry(orderPayload);
+      const savedOrder = await createOrderAtomically(orderPayload);
       state.orders.unshift(savedOrder);
-      state.nextOrder = Math.max(Number(savedOrder.id) + 1, getMaxLocalOrderId() + 1);
-
+      state.nextOrder = Math.max(Number(savedOrder.id) + 1, getMaxOrderId() + 1);
       if (typeof deductInventoryForOrder === "function") deductInventoryForOrder(savedOrder);
       if (typeof printOrder === "function") printOrder(savedOrder, "فاتورة طلب");
 
@@ -282,9 +334,8 @@
       if (confirmButton) confirmButton.textContent = "تأكيد الطلب وطباعة";
       const orderNote = document.querySelector("#orderNote");
       if (orderNote) orderNote.value = "";
-      syncCurrentOrderLabel();
-      persistOrdersLocalOnly();
-      safeRenderAll();
+      localSave(original.saveOrders);
+      renderEverything();
     } catch (error) {
       console.warn("Atomic Firebase order confirmation failed:", error);
       alert("تعذر حفظ الطلب في Firebase. تأكد من الاتصال وحاول مرة ثانية. لم يتم إنشاء رقم طلب مكرر.");
@@ -295,7 +346,7 @@
   }
 
   function patchOrderActions() {
-    if (originalConfirmOrder) {
+    if (original.confirmOrder) {
       confirmOrder = confirmOrderWithFirebase;
       document.addEventListener("click", (event) => {
         const button = event.target && event.target.closest ? event.target.closest("#confirmOrder") : null;
@@ -307,68 +358,135 @@
       }, true);
     }
 
-    if (originalDeleteOrder) {
+    if (original.deleteOrder) {
       deleteOrder = function deleteOrderFirebaseBridge(id) {
-        originalDeleteOrder(id);
+        original.deleteOrder(id);
         const order = (state.orders || []).find((item) => Number(item.id) === Number(id));
         if (order) upsertOrder(order).catch((error) => console.warn("Firebase cancel sync failed:", error));
       };
     }
 
-    if (originalMarkReady) {
+    if (original.markReady) {
       markReady = function markReadyFirebaseBridge(id) {
-        originalMarkReady(id);
+        original.markReady(id);
         const order = (state.orders || []).find((item) => Number(item.id) === Number(id));
         if (order) upsertOrder(order).catch((error) => console.warn("Firebase ready sync failed:", error));
       };
     }
   }
 
-  if (originalSaveOrders) {
-    saveOrders = function saveOrdersFirebaseBridge() {
-      originalSaveOrders();
-      syncCurrentOrderLabel();
-    };
+  function patchLocalSaves() {
+    if (original.saveOrders) {
+      saveOrders = function saveOrdersFirebaseBridge() {
+        original.saveOrders();
+        setCurrentOrderLabel();
+      };
+    }
+    if (original.saveProducts) {
+      saveProducts = function saveProductsFirebaseBridge() {
+        original.saveProducts();
+        pushCollection(state.products || [], refs.products, normalizeProductForFirestore, (product) => product.id).catch((error) => console.warn("Firebase products sync failed:", error));
+      };
+    }
+    if (original.saveInventory) {
+      saveInventory = function saveInventoryFirebaseBridge() {
+        original.saveInventory();
+        pushCollection(state.inventory || [], refs.inventory, normalizeInventoryForFirestore, (item) => item.id).catch((error) => console.warn("Firebase inventory sync failed:", error));
+      };
+    }
+    if (original.saveInventoryTransactions) {
+      saveInventoryTransactions = function saveInventoryTransactionsFirebaseBridge() {
+        original.saveInventoryTransactions();
+        pushCollection(state.inventoryTransactions || [], refs.inventoryTransactions, normalizeInventoryTxForFirestore, (tx) => tx.id || `${tx.order_id || tx.orderId || "tx"}-${tx.created_at_ms || tx.createdAt || Date.now()}`).catch((error) => console.warn("Firebase inventory transaction sync failed:", error));
+      };
+    }
+    if (original.saveInventorySettings) {
+      saveInventorySettings = function saveInventorySettingsFirebaseBridge() {
+        original.saveInventorySettings();
+        if (!applyingRemoteSnapshot) refs.inventorySettings.set({ ...(state.inventorySettings || {}), syncedAt: Date.now() }, { merge: true }).catch((error) => console.warn("Firebase inventory settings sync failed:", error));
+      };
+    }
+    if (original.saveUsers) {
+      saveUsers = function saveUsersFirebaseBridge() {
+        original.saveUsers();
+        syncUsersExact().catch((error) => console.warn("Firebase users sync failed:", error));
+      };
+    }
   }
 
-  if (originalSaveProducts) {
-    saveProducts = function saveProductsFirebaseBridge() {
-      originalSaveProducts();
-      pushCollection(state.products || [], productsRef, normalizeProductForFirestore, (product) => product.id).catch((error) => console.warn("Firebase products sync failed:", error));
-    };
+  function renderOrdersTableRealtime() {
+    const table = document.querySelector("#ordersTable");
+    if (!table) return;
+    const query = state.orderSearch.trim().replace("#", "");
+    const dateRange = getOrdersDateRange();
+    const visibleOrders = state.orders.filter((order) => {
+      const matchesSearch = !query || String(order.id).includes(query) || (order.type || "").includes(query) || (order.cashier || "").includes(query);
+      const matchesStatus = state.orderStatusFilter === "الكل" || order.status === state.orderStatusFilter;
+      const matchesDate = isInRange(order.createdAt, dateRange);
+      return matchesSearch && matchesStatus && matchesDate;
+    });
+
+    table.innerHTML = visibleOrders.map((order) => `
+      <tr>
+        <td>#${order.id}</td>
+        <td>${order.type || "-"}</td>
+        <td>${formatMoney(Number(order.total) || 0)}</td>
+        <td><span class="status-pill ${order.status === "جاهز" ? "on" : order.status === "ملغي" ? "cancel" : "wait"}">${order.status || "قيد التجهيز"}</span></td>
+        <td class="order-times-cell">${orderTimeMarkup(order)}</td>
+        <td>${order.cashier || order.createdBy || "-"}</td>
+        <td>
+          <div class="table-actions">
+            <button class="ghost-small" type="button" data-print-order="${order.id}">طباعة</button>
+            <button class="ghost-small" type="button" data-edit-order="${order.id}" ${order.status === "ملغي" || !canManageOrder(order) ? "disabled" : ""}>تعديل</button>
+            <button class="danger-small" type="button" data-delete-order="${order.id}" ${order.status === "ملغي" || !canManageOrder(order) ? "disabled" : ""}>إلغاء</button>
+          </div>
+        </td>
+      </tr>
+    `).join("");
+
+    if (!visibleOrders.length) table.innerHTML = `<tr><td colspan="7">لا توجد طلبات مطابقة.</td></tr>`;
+    document.querySelectorAll("[data-print-order]").forEach((button) => button.addEventListener("click", () => printOrderById(button.dataset.printOrder, "فاتورة طلب")));
+    document.querySelectorAll("[data-edit-order]").forEach((button) => button.addEventListener("click", () => editOrder(button.dataset.editOrder)));
+    document.querySelectorAll("[data-delete-order]").forEach((button) => button.addEventListener("click", () => deleteOrder(button.dataset.deleteOrder)));
   }
 
-  if (originalSaveInventory) {
-    saveInventory = function saveInventoryFirebaseBridge() {
-      originalSaveInventory();
-      pushCollection(state.inventory || [], inventoryRef, normalizeInventoryForFirestore, (item) => item.id).catch((error) => console.warn("Firebase inventory sync failed:", error));
-    };
+  function patchRenderers() {
+    renderOrdersTable = renderOrdersTableRealtime;
   }
 
-  if (originalSaveInventoryTransactions) {
-    saveInventoryTransactions = function saveInventoryTransactionsFirebaseBridge() {
-      originalSaveInventoryTransactions();
-      pushCollection(state.inventoryTransactions || [], inventoryTransactionsRef, normalizeInventoryTxForFirestore, (tx) => tx.id || `${tx.orderId || "tx"}-${tx.createdAt || tx.time || Date.now()}`).catch((error) => console.warn("Firebase inventory transactions sync failed:", error));
-    };
+  async function seedCollectionIfEmpty(ref, localItems, normalizer, idGetter) {
+    const snap = await ref.limit(1).get();
+    if (snap.empty && Array.isArray(localItems) && localItems.length) {
+      await pushCollection(localItems, ref, normalizer, idGetter);
+    }
   }
 
-  if (originalSaveInventorySettings) {
-    saveInventorySettings = function saveInventorySettingsFirebaseBridge() {
-      originalSaveInventorySettings();
-      if (!applyingRemoteSnapshot) inventorySettingsRef.set({ ...(state.inventorySettings || {}), syncedAt: Date.now() }, { merge: true }).catch((error) => console.warn("Firebase inventory settings sync failed:", error));
-    };
+  function startOrdersRealtimeSync() {
+    refs.orders.orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+      applyingRemoteSnapshot = true;
+      state.orders = snapshot.docs.map(normalizeOrderFromFirestore);
+      state.nextOrder = Math.max(Number(state.nextOrder || 1), getMaxOrderId() + 1);
+      localSave(original.saveOrders);
+      renderEverything();
+      applyingRemoteSnapshot = false;
+    }, (error) => {
+      applyingRemoteSnapshot = false;
+      console.warn("Firebase orders listener failed:", error);
+    });
   }
 
   async function startProductsRealtimeSync() {
-    const snap = await productsRef.limit(1).get();
-    if (snap.empty && Array.isArray(state.products) && state.products.length) {
-      await pushCollection(state.products, productsRef, normalizeProductForFirestore, (product) => product.id);
-    }
-    productsRef.onSnapshot((snapshot) => {
+    await seedCollectionIfEmpty(refs.products, state.products, normalizeProductForFirestore, (product) => product.id);
+    refs.products.onSnapshot((snapshot) => {
       applyingRemoteSnapshot = true;
-      state.products = snapshot.docs.map(normalizeProductFromFirestore).sort((a, b) => Number(a.id) - Number(b.id));
-      if (originalSaveProducts) originalSaveProducts();
-      safeRenderAll();
+      snapshot.docChanges().forEach((change) => {
+        const product = normalizeProductFromFirestore(change.doc);
+        if (change.type === "removed") state.products = state.products.filter((item) => Number(item.id) !== Number(product.id));
+        else upsertById(state.products, product);
+      });
+      state.products = sortByNumericId(state.products);
+      localSave(original.saveProducts);
+      renderEverything();
       applyingRemoteSnapshot = false;
     }, (error) => {
       applyingRemoteSnapshot = false;
@@ -377,15 +495,16 @@
   }
 
   async function startInventoryRealtimeSync() {
-    const snap = await inventoryRef.limit(1).get();
-    if (snap.empty && Array.isArray(state.inventory) && state.inventory.length) {
-      await pushCollection(state.inventory, inventoryRef, normalizeInventoryForFirestore, (item) => item.id);
-    }
-    inventoryRef.onSnapshot((snapshot) => {
+    await seedCollectionIfEmpty(refs.inventory, state.inventory, normalizeInventoryForFirestore, (item) => item.id);
+    refs.inventory.onSnapshot((snapshot) => {
       applyingRemoteSnapshot = true;
-      state.inventory = snapshot.docs.map(normalizeInventoryFromFirestore);
-      if (originalSaveInventory) originalSaveInventory();
-      safeRenderAll();
+      snapshot.docChanges().forEach((change) => {
+        const item = normalizeInventoryFromFirestore(change.doc);
+        if (change.type === "removed") state.inventory = state.inventory.filter((entry) => String(entry.id) !== String(item.id));
+        else upsertById(state.inventory, item);
+      });
+      localSave(original.saveInventory);
+      renderEverything();
       applyingRemoteSnapshot = false;
     }, (error) => {
       applyingRemoteSnapshot = false;
@@ -394,15 +513,16 @@
   }
 
   async function startInventoryTransactionsRealtimeSync() {
-    const snap = await inventoryTransactionsRef.limit(1).get();
-    if (snap.empty && Array.isArray(state.inventoryTransactions) && state.inventoryTransactions.length) {
-      await pushCollection(state.inventoryTransactions, inventoryTransactionsRef, normalizeInventoryTxForFirestore, (tx) => tx.id || `${tx.orderId || "tx"}-${tx.createdAt || tx.time || Date.now()}`);
-    }
-    inventoryTransactionsRef.onSnapshot((snapshot) => {
+    await seedCollectionIfEmpty(refs.inventoryTransactions, state.inventoryTransactions, normalizeInventoryTxForFirestore, (tx) => tx.id || `${tx.order_id || tx.orderId || "tx"}-${tx.created_at_ms || tx.createdAt || Date.now()}`);
+    refs.inventoryTransactions.onSnapshot((snapshot) => {
       applyingRemoteSnapshot = true;
-      state.inventoryTransactions = snapshot.docs.map(normalizeInventoryTxFromFirestore);
-      if (originalSaveInventoryTransactions) originalSaveInventoryTransactions();
-      safeRenderAll();
+      snapshot.docChanges().forEach((change) => {
+        const tx = normalizeInventoryTxFromFirestore(change.doc);
+        if (change.type === "removed") state.inventoryTransactions = state.inventoryTransactions.filter((entry) => String(entry.id) !== String(tx.id));
+        else upsertById(state.inventoryTransactions, tx);
+      });
+      localSave(original.saveInventoryTransactions);
+      renderEverything();
       applyingRemoteSnapshot = false;
     }, (error) => {
       applyingRemoteSnapshot = false;
@@ -411,17 +531,15 @@
   }
 
   async function startInventorySettingsRealtimeSync() {
-    const snap = await inventorySettingsRef.get();
-    if (!snap.exists && state.inventorySettings) {
-      await inventorySettingsRef.set({ ...(state.inventorySettings || {}), syncedAt: Date.now() }, { merge: true });
-    }
-    inventorySettingsRef.onSnapshot((doc) => {
+    const snap = await refs.inventorySettings.get();
+    if (!snap.exists && state.inventorySettings) await refs.inventorySettings.set({ ...(state.inventorySettings || {}), syncedAt: Date.now() }, { merge: true });
+    refs.inventorySettings.onSnapshot((doc) => {
       if (!doc.exists) return;
       applyingRemoteSnapshot = true;
       state.inventorySettings = { ...(state.inventorySettings || {}), ...(doc.data() || {}) };
       delete state.inventorySettings.syncedAt;
-      if (originalSaveInventorySettings) originalSaveInventorySettings();
-      safeRenderAll();
+      localSave(original.saveInventorySettings);
+      renderEverything();
       applyingRemoteSnapshot = false;
     }, (error) => {
       applyingRemoteSnapshot = false;
@@ -429,23 +547,33 @@
     });
   }
 
-  function startOrdersRealtimeSync() {
-    ordersRef.orderBy("createdAt", "desc").onSnapshot((snapshot) => {
+  async function startUsersRealtimeSync() {
+    await seedCollectionIfEmpty(refs.users, state.users, normalizeUserForFirestore, (user) => user.email || user.name);
+    refs.users.onSnapshot((snapshot) => {
       applyingRemoteSnapshot = true;
-      state.orders = snapshot.docs.map(normalizeOrderFromFirestore);
-      const maxId = getMaxLocalOrderId();
-      state.nextOrder = Math.max(Number(state.nextOrder || 1), maxId + 1);
-      persistOrdersLocalOnly();
-      syncCurrentOrderLabel();
-      safeRenderAll();
+      snapshot.docChanges().forEach((change) => {
+        const user = normalizeUserFromFirestore(change.doc);
+        const userId = String(user.email || change.doc.id);
+        if (change.type === "removed") state.users = state.users.filter((entry) => String(entry.email || entry.name) !== userId);
+        else {
+          const index = state.users.findIndex((entry) => String(entry.email || entry.name) === userId);
+          if (index >= 0) state.users[index] = { ...state.users[index], ...user };
+          else state.users.push(user);
+        }
+      });
+      if (typeof normalizeUsers === "function") normalizeUsers();
+      else localSave(original.saveUsers);
+      renderEverything();
       applyingRemoteSnapshot = false;
     }, (error) => {
       applyingRemoteSnapshot = false;
-      console.warn("Firebase orders listener failed. Using localStorage fallback.", error);
+      console.warn("Firebase users listener failed:", error);
     });
   }
 
+  patchLocalSaves();
   patchOrderActions();
+  patchRenderers();
 
   window.addEventListener("load", async () => {
     if (syncStarted) return;
@@ -455,8 +583,9 @@
       startProductsRealtimeSync(),
       startInventoryRealtimeSync(),
       startInventoryTransactionsRealtimeSync(),
-      startInventorySettingsRealtimeSync()
+      startInventorySettingsRealtimeSync(),
+      startUsersRealtimeSync()
     ]);
-    console.log("Smokey POS Firebase bridge is active. New order numbers are reserved atomically on confirm only.");
+    console.log("Smokey POS Firebase realtime bridge is active for orders, products, inventory, users, settings, and reports.");
   });
 })();
