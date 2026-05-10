@@ -1,7 +1,9 @@
 // Keeps ready status stable while Firestore realtime snapshots catch up.
 (function () {
   const READY_STATUS = "جاهز";
-  const HOLD_MS = 90000;
+  const CANCELED_STATUS = "ملغي";
+  const HOLD_MS = 120000;
+  const READY_LOCKS_KEY = "smokey-ready-status-locks-v1";
   const pendingReady = new Map();
   let ordersListenerStarted = false;
 
@@ -24,6 +26,28 @@
     if (value && typeof value.toMillis === "function") return value.toMillis();
     if (value && typeof value.seconds === "number") return value.seconds * 1000;
     return 0;
+  }
+
+  function readLocks() {
+    try { return JSON.parse(localStorage.getItem(READY_LOCKS_KEY) || "{}"); }
+    catch { return {}; }
+  }
+
+  function writeLocks(locks) {
+    try { localStorage.setItem(READY_LOCKS_KEY, JSON.stringify(locks || {})); }
+    catch (error) { console.warn("Ready locks save failed", error); }
+  }
+
+  function saveReadyLock(docId, readyAt) {
+    if (!docId) return;
+    const locks = readLocks();
+    locks[String(docId)] = Number(readyAt) || Date.now();
+    writeLocks(locks);
+  }
+
+  function getReadyLock(docId) {
+    const locks = readLocks();
+    return Number(locks[String(docId)] || 0);
   }
 
   function docIdForOrder(order) {
@@ -86,20 +110,24 @@
     };
   }
 
+  async function updateOnlineOrder(order, readyAt) {
+    const db = getDb();
+    if (!db || !order || !order.onlineOrderId) return;
+    await db.collection("onlineOrders").doc(String(order.onlineOrderId)).set({
+      status: READY_STATUS,
+      liveStatus: READY_STATUS,
+      readyAt,
+      orderNumber: order.orderNumber || order.id,
+      orderId: order.orderNumber || order.id,
+      updatedAt: readyAt
+    }, { merge: true });
+  }
+
   async function persistReady(order, docId, readyAt) {
     const db = getDb();
     if (!db || !order || !docId) throw new Error("FIREBASE_NOT_READY");
     await db.collection("orders").doc(docId).set(readyPayload(order, readyAt), { merge: true });
-    if (order.onlineOrderId) {
-      await db.collection("onlineOrders").doc(String(order.onlineOrderId)).set({
-        status: READY_STATUS,
-        liveStatus: READY_STATUS,
-        readyAt,
-        orderNumber: order.orderNumber || order.id,
-        orderId: order.orderNumber || order.id,
-        updatedAt: readyAt
-      }, { merge: true });
-    }
+    await updateOnlineOrder(order, readyAt);
   }
 
   function reapplyPendingReady() {
@@ -128,18 +156,46 @@
     const readyAt = Date.now();
     const docId = docIdForOrder(order) || String(ref || order.id);
     order.firebaseDocId = docId;
+    saveReadyLock(docId, readyAt);
     pendingReady.set(docId, { id: order.id, readyAt, expiresAt: readyAt + HOLD_MS });
     markOrderReadyLocal(order, readyAt);
     saveLocalOrders();
     renderSafe();
     try {
       await persistReady(order, docId, readyAt);
-      setTimeout(() => pendingReady.delete(docId), 7000);
     } catch (error) {
       console.warn("Firebase ready status sync failed", error);
       alert("تعذر تثبيت حالة الطلب جاهز في Firebase. تأكد من الاتصال وجرب مرة ثانية.");
     }
     return true;
+  }
+
+  async function rewriteReadyDoc(doc, remote, readyAt) {
+    if (!doc || !remote || remote.status === CANCELED_STATUS) return;
+    const payload = {
+      status: READY_STATUS,
+      readyAt,
+      modifiedAtMs: Math.max(Number(remote.modifiedAtMs || 0), readyAt),
+      updatedAt: readyAt,
+      updatedBy: remote.updatedBy || currentUserName(),
+      syncedAt: Date.now()
+    };
+    try {
+      await doc.ref.set(payload, { merge: true });
+      if (remote.onlineOrderId) {
+        const db = getDb();
+        await db.collection("onlineOrders").doc(String(remote.onlineOrderId)).set({
+          status: READY_STATUS,
+          liveStatus: READY_STATUS,
+          readyAt,
+          orderNumber: remote.orderNumber || remote.id,
+          orderId: remote.orderNumber || remote.id,
+          updatedAt: readyAt
+        }, { merge: true });
+      }
+    } catch (error) {
+      console.warn("Ready source guard rewrite failed", error);
+    }
   }
 
   function startRemoteGuard() {
@@ -149,18 +205,16 @@
     db.collection("orders").onSnapshot((snapshot) => {
       const now = Date.now();
       snapshot.docs.forEach((doc) => {
-        const pending = pendingReady.get(doc.id);
-        if (!pending || now > pending.expiresAt) return;
         const remote = doc.data() || {};
-        if (remote.status !== READY_STATUS) {
-          doc.ref.set({
-            status: READY_STATUS,
-            readyAt: pending.readyAt,
-            modifiedAtMs: Math.max(Number(remote.modifiedAtMs || 0), pending.readyAt),
-            updatedAt: pending.readyAt,
-            updatedBy: currentUserName(),
-            syncedAt: Date.now()
-          }, { merge: true }).catch((error) => console.warn("Ready guard rewrite failed", error));
+        const pending = pendingReady.get(doc.id);
+        const lockReadyAt = getReadyLock(doc.id);
+        const remoteReadyAt = toMillis(remote.readyAt) || Number(remote.readyAt || 0) || 0;
+        const readyEvidence = remote.status === READY_STATUS || remoteReadyAt || lockReadyAt || pending?.readyAt || 0;
+        const readyAt = Number(pending?.readyAt || lockReadyAt || remoteReadyAt || now);
+
+        if (remote.status === READY_STATUS || remoteReadyAt) saveReadyLock(doc.id, readyAt);
+        if (readyEvidence && remote.status !== READY_STATUS && remote.status !== CANCELED_STATUS) {
+          rewriteReadyDoc(doc, remote, readyAt);
         }
       });
       setTimeout(reapplyPendingReady, 40);
