@@ -8,19 +8,32 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, sans-serif; background: #070809; color: #fff; }
+    body.show-orders main.menu-view { display: none; }
+    body:not(.show-orders) main.orders-view { display: none; }
     header { position: sticky; top: 0; z-index: 10; padding: 14px 14px 10px; background: rgba(7, 8, 9, .96); border-bottom: 1px solid rgba(255,255,255,.08); }
     h1, h2, p { margin: 0; }
     h1 { font-size: 24px; letter-spacing: 0; }
     header p { color: #a9bdd4; margin-top: 4px; }
-    main { padding: 12px 12px 116px; max-width: 980px; margin: 0 auto; }
-    .customer-box, .status-box { border: 1px solid rgba(160,180,200,.18); border-radius: 12px; background: #11161b; padding: 12px; margin-bottom: 12px; }
+    main { padding: 12px 12px 128px; max-width: 980px; margin: 0 auto; }
+    .customer-box, .status-box, .success-box, .order-track-card { border: 1px solid rgba(160,180,200,.18); border-radius: 12px; background: #11161b; padding: 12px; margin-bottom: 12px; }
+    .success-box { border-color: rgba(53,229,111,.4); background: linear-gradient(180deg, rgba(22,78,42,.55), #11161b); display: none; }
+    .success-box.show { display: grid; gap: 8px; }
+    .success-box h2 { color: #35e56f; font-size: 22px; }
+    .success-box button, .order-track-card button { min-height: 42px; border: 0; border-radius: 10px; background: #ed1c24; color: #fff; font-weight: 900; }
     .type-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 10px; }
     button { font: inherit; cursor: pointer; }
-    .type-row button, .submit-order, .cart-toggle { min-height: 46px; border: 0; border-radius: 10px; background: #222a32; color: #fff; font-weight: 900; }
-    .type-row button.active, .submit-order { background: #ed1c24; }
+    .type-row button, .submit-order, .cart-toggle, .bottom-tab, .gps-button { min-height: 46px; border: 0; border-radius: 10px; background: #222a32; color: #fff; font-weight: 900; }
+    .type-row button.active, .submit-order, .bottom-tab.active { background: #ed1c24; }
     .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
-    input, textarea { width: 100%; min-height: 46px; border-radius: 10px; border: 1px solid rgba(160,180,200,.22); background: #090d10; color: #fff; padding: 10px 12px; font-size: 16px; }
+    label { display: grid; gap: 6px; color: #a9bdd4; font-weight: 800; }
+    input, textarea, select { width: 100%; min-height: 46px; border-radius: 10px; border: 1px solid rgba(160,180,200,.22); background: #090d10; color: #fff; padding: 10px 12px; font-size: 16px; }
+    select { appearance: auto; }
     textarea { margin-top: 8px; resize: vertical; }
+    .location-row { display: none; margin-top: 8px; gap: 8px; }
+    body.delivery-selected .location-row { display: grid; grid-template-columns: 1fr auto; }
+    .gps-button { padding-inline: 14px; white-space: nowrap; }
+    .form-error { display: none; margin-top: 8px; color: #ff4d4d; font-weight: 900; }
+    .form-error.show { display: block; }
     .categories { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 12px; scrollbar-width: none; }
     .categories::-webkit-scrollbar { display: none; }
     .categories button { flex: 0 0 auto; min-height: 40px; padding: 8px 12px; border: 1px solid rgba(160,180,200,.18); border-radius: 10px; background: #11161b; color: #dbe8f5; font-weight: 800; }
@@ -36,16 +49,20 @@
     .actions button.minus { background: #252c33; border: 1px solid rgba(160,180,200,.18); }
     .actions b { text-align: center; }
     .note-btn { grid-column: 1 / -1; min-height: 36px !important; background: #20262d !important; border: 1px solid rgba(160,180,200,.18) !important; font-size: 14px !important; }
-    .bottom-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); background: rgba(8,10,12,.96); border-top: 1px solid rgba(160,180,200,.16); }
+    .bottom-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom)); background: rgba(8,10,12,.96); border-top: 1px solid rgba(160,180,200,.16); }
     .bottom-bar strong { align-self: center; white-space: nowrap; }
     .submit-order { grid-column: 1 / -1; }
-    .cart-sheet { position: fixed; left: 0; right: 0; bottom: 96px; z-index: 19; max-height: 65vh; overflow: auto; transform: translateY(calc(100% + 100px)); transition: transform .2s ease; border-radius: 16px 16px 0 0; background: #11161b; border-top: 1px solid rgba(160,180,200,.18); padding: 12px; }
+    .cart-sheet { position: fixed; left: 0; right: 0; bottom: 142px; z-index: 19; max-height: 60vh; overflow: auto; transform: translateY(calc(100% + 160px)); transition: transform .2s ease; border-radius: 16px 16px 0 0; background: #11161b; border-top: 1px solid rgba(160,180,200,.18); padding: 12px; }
     body.cart-open .cart-sheet { transform: translateY(0); }
     .cart-line { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
-    .cart-line small { display: block; color: #a9bdd4; margin-top: 4px; }
+    .cart-line small, .order-track-card small { display: block; color: #a9bdd4; margin-top: 4px; }
     .status-box { color: #35e56f; font-weight: 900; min-height: 44px; }
     .empty { color: #a9bdd4; text-align: center; padding: 28px 0; grid-column: 1 / -1; }
-    @media (max-width: 390px) { .grid { gap: 8px; } .info strong { font-size: 14px; } .field-grid { grid-template-columns: 1fr; } }
+    .order-track-card { display: grid; gap: 8px; }
+    .order-track-card strong { font-size: 20px; }
+    .order-track-card b { color: #ffd43b; }
+    .track-pill { width: fit-content; padding: 7px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,.16); color: #35e56f; font-weight: 900; }
+    @media (max-width: 390px) { .grid { gap: 8px; } .info strong { font-size: 14px; } .field-grid { grid-template-columns: 1fr; } body.delivery-selected .location-row { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -53,29 +70,57 @@
     <h1>Smokey BBQ & Grill</h1>
     <p>اختار طلبك، والكاشير يراجع الطلب ويقبله قبل التجهيز.</p>
   </header>
-  <main>
+
+  <main class="menu-view">
     <section class="customer-box">
       <div class="type-row">
         <button class="active" type="button" data-type="استلام">استلام</button>
         <button type="button" data-type="توصيل">توصيل</button>
       </div>
       <div class="field-grid">
-        <input id="customerName" type="text" placeholder="الاسم">
-        <input id="customerPhone" type="tel" inputmode="tel" placeholder="رقم الهاتف">
+        <label>الاسم<input id="customerName" type="text" placeholder="الاسم"></label>
+        <label>نوع الرقم
+          <select id="phoneType">
+            <option value="libyana">ليبيانا</option>
+            <option value="madar">مدار</option>
+            <option value="whatsapp">واتساب</option>
+          </select>
+        </label>
+        <label>رقم الهاتف<input id="customerPhone" type="tel" inputmode="tel" placeholder="مثال: 0921234567"></label>
       </div>
-      <textarea id="customerNote" rows="2" placeholder="ملاحظة أو عنوان التوصيل"></textarea>
+      <div class="location-row" id="locationRow">
+        <input id="deliveryLocation" type="text" placeholder="الموقع أو العنوان للتوصيل">
+        <button class="gps-button" id="gpsButton" type="button">موقعي</button>
+      </div>
+      <textarea id="customerNote" rows="2" placeholder="ملاحظة للطلب"></textarea>
+      <div class="form-error" id="formError"></div>
+    </section>
+    <section class="success-box" id="successBox">
+      <h2>شكرا على زيارتكم</h2>
+      <p>لقد قمتم بالطلب بنجاح. يرجى متابعة حالة الطلب بالضغط على طلباتي في أسفل الشاشة.</p>
+      <button type="button" id="successOrdersButton">طلباتي</button>
     </section>
     <div class="status-box" id="statusBox">جاهز لاستقبال طلبك.</div>
     <nav class="categories" id="categories"></nav>
     <section class="grid" id="products"><p class="empty">جاري تحميل الأصناف...</p></section>
   </main>
+
+  <main class="orders-view">
+    <h2>طلباتي</h2>
+    <p style="color:#a9bdd4;margin:6px 0 12px;">هنا تتابع حالة طلباتك من نفس الجهاز.</p>
+    <section id="myOrders"><p class="empty">لا توجد طلبات محفوظة على هذا الجهاز.</p></section>
+  </main>
+
   <aside class="cart-sheet" id="cartSheet">
     <h2>مراجعة السلة</h2>
     <div id="cartItems"><p class="empty">السلة فارغة.</p></div>
   </aside>
+
   <footer class="bottom-bar">
-    <button class="cart-toggle" id="cartToggle" type="button">السلة <span id="cartCount">0</span></button>
+    <button class="bottom-tab active" id="menuTab" type="button">القائمة</button>
+    <button class="bottom-tab" id="ordersTab" type="button">طلباتي</button>
     <strong id="cartTotal">0 د.ل</strong>
+    <button class="cart-toggle" id="cartToggle" type="button">السلة <span id="cartCount">0</span></button>
     <button class="submit-order" id="submitOrder" type="button">إرسال الطلب للكاشير</button>
   </footer>
 
@@ -100,8 +145,9 @@
       drinks: "https://images.unsplash.com/photo-1544145945-f90425340c7e?auto=format&fit=crop&w=700&q=80",
       default: "https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=700&q=80"
     };
-    const state = { products: [], cart: [], category: "الكل", type: "استلام", lastOrderId: null };
+    const state = { products: [], cart: [], category: "الكل", type: "استلام", trackedOrders: {}, unsubscribers: {} };
     const categories = ["الكل", "برغر", "دجاج", "سندوتشات", "تورتيلا", "سناكس", "مشروبات"];
+    const ORDER_IDS_KEY = "smokey-customer-order-ids";
 
     function $(selector) { return document.querySelector(selector); }
     function $$(selector) { return Array.from(document.querySelectorAll(selector)); }
@@ -118,6 +164,43 @@
       if (/برغر|برجر/.test(text)) return fallbackImages.burger;
       return fallbackImages.default;
     }
+
+    function showError(message) {
+      const box = $("#formError");
+      box.textContent = message || "";
+      box.classList.toggle("show", Boolean(message));
+    }
+
+    function normalizeLibyanPhone(phone) {
+      let digits = String(phone || "").replace(/[^0-9]/g, "");
+      if (digits.startsWith("00218")) digits = "0" + digits.slice(5);
+      else if (digits.startsWith("218")) digits = "0" + digits.slice(3);
+      return digits;
+    }
+
+    function validateCustomer() {
+      const name = $("#customerName").value.trim();
+      const phoneType = $("#phoneType").value;
+      const rawPhone = $("#customerPhone").value.trim();
+      const location = $("#deliveryLocation").value.trim();
+      if (!name) return { ok: false, message: "اكتب الاسم." };
+      if (!rawPhone) return { ok: false, message: "اكتب رقم الهاتف." };
+      let phone = rawPhone;
+      if (phoneType === "whatsapp") {
+        const digits = rawPhone.replace(/[^0-9]/g, "");
+        if (digits.length < 6) return { ok: false, message: "رقم الواتساب قصير جدا." };
+      } else {
+        phone = normalizeLibyanPhone(rawPhone);
+        const prefixes = phoneType === "libyana" ? ["092", "094"] : ["091", "093"];
+        if (!/^09[0-9]{8}$/.test(phone)) return { ok: false, message: "رقم الهاتف الليبي لازم يكون 10 أرقام مثل 0921234567." };
+        if (!prefixes.some((prefix) => phone.startsWith(prefix))) {
+          return { ok: false, message: phoneType === "libyana" ? "رقم ليبيانا لازم يبدأ بـ 092 أو 094." : "رقم مدار لازم يبدأ بـ 091 أو 093." };
+        }
+      }
+      if (state.type === "توصيل" && !location) return { ok: false, message: "للتوصيل لازم تحدد الموقع أو العنوان." };
+      return { ok: true, name, phone, rawPhone, phoneType, location };
+    }
+
     function qty(name) { return state.cart.filter((line) => line.name === name).reduce((sum, line) => sum + Number(line.qty || 0), 0); }
     function add(name) {
       const product = state.products.find((item) => item.name === name);
@@ -141,10 +224,12 @@
       if (value !== null && line) line.note = value.trim();
       render();
     }
+
     function renderCategories() {
       $("#categories").innerHTML = categories.map((category) => `<button class="${state.category === category ? "active" : ""}" data-category="${esc(category)}">${esc(category)}</button>`).join("");
       $$('[data-category]').forEach((button) => button.addEventListener("click", () => { state.category = button.dataset.category; render(); }));
     }
+
     function renderProducts() {
       const filtered = state.products.filter((product) => product.available !== false && (state.category === "الكل" || product.category === state.category));
       $("#products").innerHTML = filtered.length ? filtered.map((product) => `
@@ -162,6 +247,7 @@
       $$('[data-dec]').forEach((button) => button.addEventListener("click", () => dec(button.dataset.dec)));
       $$('[data-note]').forEach((button) => button.addEventListener("click", () => note(button.dataset.note)));
     }
+
     function renderCart() {
       const total = state.cart.reduce((sum, item) => sum + Number(item.qty || 0) * Number(item.price || 0), 0);
       const count = state.cart.reduce((sum, item) => sum + Number(item.qty || 0), 0);
@@ -171,17 +257,100 @@
         <div class="cart-line"><div><strong>${esc(item.name)}</strong>${item.note ? `<small>${esc(item.note)}</small>` : ""}</div><b>${item.qty}x · ${money(item.price * item.qty)}</b></div>
       `).join("") : `<p class="empty">السلة فارغة.</p>`;
     }
-    function render() { renderCategories(); renderProducts(); renderCart(); }
+
+    function render() { renderCategories(); renderProducts(); renderCart(); renderMyOrders(); }
+
+    function getSavedOrderIds() {
+      try { return JSON.parse(localStorage.getItem(ORDER_IDS_KEY) || "[]").filter(Boolean); }
+      catch (error) { return []; }
+    }
+
+    function saveOrderId(id) {
+      const ids = [id, ...getSavedOrderIds().filter((item) => item !== id)].slice(0, 12);
+      localStorage.setItem(ORDER_IDS_KEY, JSON.stringify(ids));
+      listenOrder(id);
+    }
+
+    function orderMessage(order) {
+      if (!order) return "جاري تحميل حالة الطلب.";
+      if (order.status === "مرفوض") return "تم رفض الطلب. يرجى التواصل مع المطعم.";
+      if (order.status === "في انتظار الموافقة") return "طلبكم بانتظار موافقة الكاشير.";
+      const orderNumber = order.orderNumber || order.orderId || order.acceptedOrder?.orderNumber || "-";
+      const live = order.liveOrder || null;
+      const liveStatus = live?.status || order.status;
+      if (liveStatus === "جاهز" || liveStatus === "طلب جاهز") {
+        if (order.type === "توصيل") {
+          const readyKey = `smokey-ready-at-${order.id}`;
+          let readyAt = Number(localStorage.getItem(readyKey) || 0);
+          if (!readyAt) {
+            readyAt = Date.now();
+            localStorage.setItem(readyKey, String(readyAt));
+            setTimeout(renderMyOrders, 1000);
+          }
+          if (Date.now() - readyAt >= 90000) return `تم التسليم للدليفري. رقم طلبكم #${orderNumber}`;
+          return `طلبكم جاهز بانتظار الدليفري. رقم طلبكم #${orderNumber}`;
+        }
+        return `طلبكم جاهز. رقم طلبكم #${orderNumber}`;
+      }
+      if (liveStatus === "قيد التجهيز") return `تمت الموافقة. رقم طلبكم #${orderNumber} والآن الطلب قيد التجهيز.`;
+      if (order.status === "مقبول") return `تمت الموافقة. رقم طلبكم #${orderNumber}.`;
+      return `حالة الطلب: ${liveStatus}`;
+    }
+
+    function renderMyOrders() {
+      const ids = getSavedOrderIds();
+      const root = $("#myOrders");
+      if (!root) return;
+      if (!ids.length) {
+        root.innerHTML = `<p class="empty">لا توجد طلبات محفوظة على هذا الجهاز.</p>`;
+        return;
+      }
+      root.innerHTML = ids.map((id) => {
+        const order = state.trackedOrders[id];
+        const items = (order?.items || []).map((item) => `${item.qty}x ${item.name}`).join("، ");
+        return `
+          <article class="order-track-card">
+            <strong>${order?.customer?.name ? esc(order.customer.name) : "طلب زبون"}</strong>
+            <span class="track-pill">${esc(orderMessage(order))}</span>
+            <small>${esc(items || "جاري تحميل تفاصيل الطلب")}</small>
+            <b>${money(order?.total || 0)}</b>
+          </article>
+        `;
+      }).join("");
+    }
+
+    function listenOrder(id) {
+      if (!id || state.unsubscribers[id]) return;
+      state.unsubscribers[id] = db.collection("onlineOrders").doc(id).onSnapshot((doc) => {
+        if (!doc.exists) return;
+        const data = { id, ...(doc.data() || {}) };
+        state.trackedOrders[id] = { ...(state.trackedOrders[id] || {}), ...data };
+        renderMyOrders();
+        const orderNumber = data.orderNumber || data.orderId;
+        if (orderNumber && !state.unsubscribers[`live-${id}`]) {
+          state.unsubscribers[`live-${id}`] = db.collection("orders").where("onlineOrderId", "==", id).limit(1).onSnapshot((snapshot) => {
+            if (!snapshot.empty) {
+              const live = snapshot.docs[0].data() || {};
+              state.trackedOrders[id] = { ...(state.trackedOrders[id] || {}), liveOrder: live };
+              renderMyOrders();
+              setTimeout(renderMyOrders, 91000);
+            }
+          });
+        }
+      });
+    }
+
     async function submitOrder() {
-      if (!state.cart.length) return alert("اختار صنف واحد على الأقل.");
-      const name = $("#customerName").value.trim();
-      const phone = $("#customerPhone").value.trim();
-      if (!name || !phone) return alert("اكتب الاسم ورقم الهاتف.");
+      showError("");
+      if (!state.cart.length) { showError("اختار صنف واحد على الأقل."); return; }
+      const customer = validateCustomer();
+      if (!customer.ok) { showError(customer.message); return; }
       const total = state.cart.reduce((sum, item) => sum + Number(item.qty || 0) * Number(item.price || 0), 0);
       const payload = {
         status: "في انتظار الموافقة",
         type: state.type,
-        customer: { name, phone },
+        customer: { name: customer.name, phone: customer.phone, rawPhone: customer.rawPhone, phoneType: customer.phoneType },
+        deliveryLocation: state.type === "توصيل" ? customer.location : "",
         note: $("#customerNote").value.trim(),
         items: state.cart.map((item) => ({ name: item.name, qty: item.qty, price: Number(item.price) || 0, notes: item.note ? [item.note] : [], modifiers: [] })),
         total,
@@ -191,34 +360,52 @@
       $("#submitOrder").disabled = true;
       try {
         const ref = await db.collection("onlineOrders").add(payload);
-        state.lastOrderId = ref.id;
         state.cart = [];
+        saveOrderId(ref.id);
         $("#statusBox").textContent = "تم إرسال الطلب. في انتظار موافقة الكاشير.";
-        listenOrder(ref.id);
+        $("#successBox").classList.add("show");
+        document.body.classList.add("show-orders");
+        setActiveTab("orders");
         render();
       } catch (error) {
         console.warn(error);
-        alert("تعذر إرسال الطلب. حاول مرة ثانية.");
+        showError("تعذر إرسال الطلب. حاول مرة ثانية.");
       } finally {
         $("#submitOrder").disabled = false;
       }
     }
-    function listenOrder(id) {
-      db.collection("onlineOrders").doc(id).onSnapshot((doc) => {
-        if (!doc.exists) return;
-        const data = doc.data() || {};
-        if (data.status === "مقبول") $("#statusBox").textContent = `تم قبول الطلب. رقم طلبك #${data.orderNumber || data.orderId || "-"}`;
-        else if (data.status === "مرفوض") $("#statusBox").textContent = "تم رفض الطلب. تواصل مع المطعم.";
-        else $("#statusBox").textContent = "طلبك في انتظار موافقة الكاشير.";
-      });
+
+    function setActiveTab(tab) {
+      const orders = tab === "orders";
+      document.body.classList.toggle("show-orders", orders);
+      document.body.classList.remove("cart-open");
+      $("#menuTab").classList.toggle("active", !orders);
+      $("#ordersTab").classList.toggle("active", orders);
     }
-    $$("[data-type]").forEach((button) => button.addEventListener("click", () => {
-      $$("[data-type]").forEach((item) => item.classList.remove("active"));
+
+    $$('[data-type]').forEach((button) => button.addEventListener("click", () => {
+      $$('[data-type]').forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
       state.type = button.dataset.type;
+      document.body.classList.toggle("delivery-selected", state.type === "توصيل");
     }));
+
+    $("#gpsButton").addEventListener("click", () => {
+      if (!navigator.geolocation) { showError("المتصفح لا يدعم تحديد الموقع. اكتب العنوان يدويا."); return; }
+      showError("جاري تحديد الموقع...");
+      navigator.geolocation.getCurrentPosition((pos) => {
+        $("#deliveryLocation").value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+        showError("");
+      }, () => showError("تعذر تحديد الموقع. اكتب العنوان يدويا."), { enableHighAccuracy: true, timeout: 10000 });
+    });
+
     $("#cartToggle").addEventListener("click", () => document.body.classList.toggle("cart-open"));
     $("#submitOrder").addEventListener("click", submitOrder);
+    $("#menuTab").addEventListener("click", () => setActiveTab("menu"));
+    $("#ordersTab").addEventListener("click", () => setActiveTab("orders"));
+    $("#successOrdersButton").addEventListener("click", () => setActiveTab("orders"));
+
+    getSavedOrderIds().forEach(listenOrder);
     db.collection("products").onSnapshot((snapshot) => {
       state.products = snapshot.docs.map((doc) => ({ id: Number(doc.data().id || doc.id), ...(doc.data() || {}) })).sort((a, b) => Number(a.id) - Number(b.id));
       render();
@@ -228,6 +415,7 @@
     });
     renderCategories();
     renderCart();
+    renderMyOrders();
   </script>
 </body>
 </html>
