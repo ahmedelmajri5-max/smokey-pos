@@ -1,4 +1,4 @@
-const CACHE_NAME = "smokey-pos-v73-online-permissions-dashboard";
+const CACHE_NAME = "smokey-pos-v74-online-permissions-dashboard-v2";
 const ENHANCEMENT_SCRIPTS = `
   <link rel="stylesheet" href="./mobile-sales-enhancements.css?v=1">
   <script src="./mobile-sales-enhancements.js?v=2"></script>
@@ -7,7 +7,7 @@ const ORDER_ACTION_GUARD_SCRIPT = `<script src="./firebase-order-actions-stable.
 const CUSTOMER_STATUS_GUARD_SCRIPT = `<script src="./firebase-customer-status-hotfix.js?v=1"></script>`;
 const FIREBASE_QUERY_GUARD_SCRIPT = `<script src="./firebase-current-day-query-guard.js?v=1"></script>`;
 const ORDER_RANGE_LOADER_SCRIPT = `<script src="./firebase-order-range-loader.js?v=1"></script>`;
-const ONLINE_PERMISSIONS_DASHBOARD_SCRIPT = `<script src="./online-permissions-dashboard.js?v=1"></script>`;
+const ONLINE_PERMISSIONS_DASHBOARD_SCRIPT = `<script src="./online-permissions-dashboard-v2.js?v=1"></script>`;
 const FIREBASE_BRIDGE_SCRIPTS = `
   <script>
     (function () {
@@ -48,7 +48,7 @@ const FILES_TO_CACHE = [
   "./firebase-customer-status-hotfix.js?v=1",
   "./mobile-sales-enhancements.css?v=1",
   "./mobile-sales-enhancements.js?v=2",
-  "./online-permissions-dashboard.js?v=1",
+  "./online-permissions-dashboard-v2.js?v=1",
   "./manifest.json",
   "./assets/smokey-logo.jpeg"
 ];
@@ -67,7 +67,7 @@ async function injectFirebaseBridge(response) {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
   const html = await response.text();
-  if (html.includes("firebase-order-actions-stable.js?v=1") && html.includes("firebase-current-day-query-guard.js?v=1") && html.includes("firebase-order-range-loader.js?v=1") && html.includes("online-permissions-dashboard.js?v=1")) {
+  if (html.includes("firebase-order-actions-stable.js?v=1") && html.includes("firebase-current-day-query-guard.js?v=1") && html.includes("firebase-order-range-loader.js?v=1") && html.includes("online-permissions-dashboard-v2.js?v=1")) {
     return new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers });
   }
   const scripts = html.includes("firebase-order-reset.js?v=3")
