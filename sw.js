@@ -1,8 +1,9 @@
-const CACHE_NAME = "smokey-pos-v74-online-permissions-dashboard-v2";
+const CACHE_NAME = "smokey-pos-v75-login-auth-hotfix";
 const ENHANCEMENT_SCRIPTS = `
   <link rel="stylesheet" href="./mobile-sales-enhancements.css?v=1">
   <script src="./mobile-sales-enhancements.js?v=2"></script>
 `;
+const LOGIN_AUTH_HOTFIX_SCRIPT = `<script src="./login-auth-hotfix.js?v=1"></script>`;
 const ORDER_ACTION_GUARD_SCRIPT = `<script src="./firebase-order-actions-stable.js?v=1"></script>`;
 const CUSTOMER_STATUS_GUARD_SCRIPT = `<script src="./firebase-customer-status-hotfix.js?v=1"></script>`;
 const FIREBASE_QUERY_GUARD_SCRIPT = `<script src="./firebase-current-day-query-guard.js?v=1"></script>`;
@@ -24,6 +25,7 @@ const FIREBASE_BRIDGE_SCRIPTS = `
       else fixSmokeyLogoPath();
     })();
   </script>
+  ${LOGIN_AUTH_HOTFIX_SCRIPT}
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
   ${FIREBASE_QUERY_GUARD_SCRIPT}
@@ -40,6 +42,7 @@ const FILES_TO_CACHE = [
   "./index.html",
   "./styles.css?v=51",
   "./app.js?v=51",
+  "./login-auth-hotfix.js?v=1",
   "./firebase-orders-bridge.js?v=10",
   "./firebase-current-day-query-guard.js?v=1",
   "./firebase-order-range-loader.js?v=1",
@@ -67,11 +70,11 @@ async function injectFirebaseBridge(response) {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html")) return response;
   const html = await response.text();
-  if (html.includes("firebase-order-actions-stable.js?v=1") && html.includes("firebase-current-day-query-guard.js?v=1") && html.includes("firebase-order-range-loader.js?v=1") && html.includes("online-permissions-dashboard-v2.js?v=1")) {
+  if (html.includes("login-auth-hotfix.js?v=1") && html.includes("firebase-order-actions-stable.js?v=1") && html.includes("firebase-current-day-query-guard.js?v=1") && html.includes("firebase-order-range-loader.js?v=1") && html.includes("online-permissions-dashboard-v2.js?v=1")) {
     return new Response(html, { status: response.status, statusText: response.statusText, headers: response.headers });
   }
   const scripts = html.includes("firebase-order-reset.js?v=3")
-    ? `${FIREBASE_QUERY_GUARD_SCRIPT}\n${ORDER_RANGE_LOADER_SCRIPT}\n${ENHANCEMENT_SCRIPTS}\n${ORDER_ACTION_GUARD_SCRIPT}\n${CUSTOMER_STATUS_GUARD_SCRIPT}\n${ONLINE_PERMISSIONS_DASHBOARD_SCRIPT}`
+    ? `${LOGIN_AUTH_HOTFIX_SCRIPT}\n${FIREBASE_QUERY_GUARD_SCRIPT}\n${ORDER_RANGE_LOADER_SCRIPT}\n${ENHANCEMENT_SCRIPTS}\n${ORDER_ACTION_GUARD_SCRIPT}\n${CUSTOMER_STATUS_GUARD_SCRIPT}\n${ONLINE_PERMISSIONS_DASHBOARD_SCRIPT}`
     : FIREBASE_BRIDGE_SCRIPTS;
   const patched = html.replace("</body>", `${scripts}\n</body>`);
   return new Response(patched, {
