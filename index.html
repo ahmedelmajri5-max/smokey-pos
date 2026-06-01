@@ -11,7 +11,7 @@
 <body>
   <section class="login-view" id="loginView">
     <form class="login-card" id="loginForm">
-      <img src="WhatsApp Image 2026-05-06 at 21.08.22.jpeg" alt="Smokey BBQ & Grill">
+      <img src="assets/smokey-logo.jpeg" alt="Smokey BBQ & Grill">
       <h1>تسجيل الدخول</h1>
       <label>
         <span>الإيميل</span>
@@ -34,7 +34,7 @@
   <div class="app-shell">
     <aside class="sidebar" aria-label="التنقل الرئيسي">
       <div class="brand">
-        <img src="WhatsApp Image 2026-05-06 at 21.08.22.jpeg" alt="Smokey BBQ & Grill">
+        <img src="assets/smokey-logo.jpeg" alt="Smokey BBQ & Grill">
         <div>
           <strong>Smokey</strong>
           <span>BBQ & Grill</span>
@@ -367,7 +367,7 @@
       <section class="screen customer-screen" id="customer">
         <button class="customer-exit" type="button" id="customerExit">خروج</button>
         <div class="customer-logo">
-          <img src="WhatsApp Image 2026-05-06 at 21.08.22.jpeg" alt="Smokey">
+          <img src="assets/smokey-logo.jpeg" alt="Smokey">
           <h2>طلب جاهز</h2>
         </div>
         <div class="customer-display">
@@ -494,7 +494,13 @@
     </main>
   </div>
 
-  <script src="app.js?v=51"></script>
+  <script src="app.js?v=52"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="firebase-config.js?v=52"></script>
+  <script src="external-readonly.js?v=52"></script>
+  <script src="external-sync.js?v=52"></script>
+  <script src="external-inventory.js?v=52"></script>
   <script>
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
       navigator.serviceWorker.register("sw.js");
