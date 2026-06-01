@@ -1,10 +1,14 @@
-const CACHE_NAME = "smokey-pos-v51";
+const CACHE_NAME = "smokey-pos-external-v52";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",
   "./styles.css?v=51",
-  "./app.js?v=51",
+  "./app.js?v=52",
   "./manifest.json",
+  "./firebase-config.js?v=52",
+  "./external-readonly.js?v=52",
+  "./external-sync.js?v=52",
+  "./external-inventory.js?v=52",
   "./assets/smokey-logo.jpeg"
 ];
 
@@ -29,11 +33,17 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-        return response;
-      });
+      return fetch(event.request)
+        .then((response) => {
+          if (!response || response.status !== 200) return response;
+          const requestUrl = new URL(event.request.url);
+          if (requestUrl.origin === self.location.origin) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match("./index.html"));
     })
   );
 });
